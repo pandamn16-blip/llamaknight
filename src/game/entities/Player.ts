@@ -33,6 +33,8 @@ export class Player {
     get x(): number { return this.sprite.x; }
     get y(): number { return this.sprite.y; }
 
+    showCharge(): void { this.visual.showCharge(); }
+    endCharge(): void { this.visual.endCharge(); }
     showAttack(): boolean {
         return this.visual.showAction('attack') && this.visual.attackIncludesWeaponEffect;
     }
