@@ -13,6 +13,17 @@ export const CANDY_PROJECTILE_EFFECT = {
     animationKey: 'weapon:candy-projectile:impact', start: 4, end: 5, fps: 16, repeat: 0
 } as const;
 
+export const CANDY_PROJECTILE_IDLE = {
+    key: 'weapon:candy-orb', path: 'characters/candy/projectileidle.png',
+    width: 2048, height: 256, frameWidth: 256, frameHeight: 256
+} as const;
+
+export function hasCandyChargeOrb(scene: Scene): boolean {
+    return scene.textures.exists(CANDY_PROJECTILE_IDLE.key) &&
+        scene.textures.get(CANDY_PROJECTILE_IDLE.key).getSourceImage().width === CANDY_PROJECTILE_IDLE.width &&
+        scene.anims.exists('candy:orb-start') && scene.anims.exists('candy:orb-spin');
+}
+
 export function hasCandyProjectileEffect(scene: Scene): boolean {
     return hasSpriteFrames(scene, CANDY_PROJECTILE_EFFECT, CANDY_PROJECTILE_EFFECT) &&
         scene.anims.exists(CANDY_PROJECTILE_EFFECT.animationKey);
@@ -31,6 +42,9 @@ export function loadWeaponEffects(scene: Scene): void {
         frameWidth: candy.frameWidth, frameHeight: candy.frameHeight,
         startFrame: 0, endFrame: 5
     });
+    scene.load.spritesheet(CANDY_PROJECTILE_IDLE.key, CANDY_PROJECTILE_IDLE.path, {
+        frameWidth: 256, frameHeight: 256, startFrame: 0, endFrame: 7
+    });
 }
 
 export function hasSwordSlashEffect(scene: Scene): boolean {
@@ -39,6 +53,19 @@ export function hasSwordSlashEffect(scene: Scene): boolean {
 }
 
 export function registerWeaponEffects(scene: Scene): void {
+    if (scene.textures.exists(CANDY_PROJECTILE_IDLE.key) &&
+        scene.textures.get(CANDY_PROJECTILE_IDLE.key).getSourceImage().width === 2048) {
+        if (!scene.anims.exists('candy:orb-start')) scene.anims.create({
+            key: 'candy:orb-start',
+            frames: scene.anims.generateFrameNumbers(CANDY_PROJECTILE_IDLE.key, { start: 0, end: 1 }),
+            frameRate: 8, repeat: 0
+        });
+        if (!scene.anims.exists('candy:orb-spin')) scene.anims.create({
+            key: 'candy:orb-spin',
+            frames: scene.anims.generateFrameNumbers(CANDY_PROJECTILE_IDLE.key, { start: 2, end: 7 }),
+            frameRate: 13, repeat: -1
+        });
+    }
     for (const effect of [SWORD_SLASH_EFFECT, CANDY_PROJECTILE_EFFECT]) {
         if (!hasSpriteFrames(scene, effect, effect) || scene.anims.exists(effect.animationKey)) continue;
         scene.anims.create({ key: effect.animationKey,
