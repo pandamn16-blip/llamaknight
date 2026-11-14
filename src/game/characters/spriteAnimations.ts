@@ -67,6 +67,21 @@ export const CHARACTER_SPRITES: Partial<Record<CharacterVisual, CharacterSpriteS
     }
 };
 
+// Newly supplied charge art is a 6x2 grid of 362px cells, NOT 256px frames.
+// Load its native grid without stretching; visual scaling compensates.
+// It should be re-exported to 12x256 in the standard horizontal format later.
+export const CANDY_CHARGE = {
+    key: 'candy-charge', path: 'characters/candy/charge.png',
+    width: 2172, height: 724, frameWidth: 362, frameHeight: 362,
+    start: 0, end: 11, fps: 12, repeat: 0
+} as const;
+
+export function hasCandyCharge(scene: Scene): boolean {
+    return scene.textures.exists(CANDY_CHARGE.key) &&
+        scene.textures.get(CANDY_CHARGE.key).getSourceImage().width === CANDY_CHARGE.width &&
+        scene.anims.exists('candy:charge');
+}
+
 // Optional celebration animation; not required for the character to load.
 export const CANDY_LEVELUP = {
     key: 'candy-levelup', path: 'characters/candy/levelup.png',
@@ -113,6 +128,10 @@ export function loadCharacterSheets(scene: Scene): void {
     const candyJump = sources.get('candy-jump');
     if (candyJump) candyJump.end = 5;
     sources.set(CANDY_LEVELUP.key, { source: CANDY_LEVELUP, end: CANDY_LEVELUP.end });
+    scene.load.spritesheet(CANDY_CHARGE.key, CANDY_CHARGE.path, {
+        frameWidth: CANDY_CHARGE.frameWidth, frameHeight: CANDY_CHARGE.frameHeight,
+        startFrame: CANDY_CHARGE.start, endFrame: CANDY_CHARGE.end
+    });
     for (const { source, end } of sources.values()) {
         scene.load.spritesheet(source.key, source.path, {
             frameWidth: source.frameWidth, frameHeight: source.frameHeight, startFrame: 0, endFrame: end
@@ -121,6 +140,15 @@ export function loadCharacterSheets(scene: Scene): void {
 }
 
 export function registerCharacterAnimations(scene: Scene): void {
+    if (scene.textures.exists(CANDY_CHARGE.key) &&
+        scene.textures.get(CANDY_CHARGE.key).getSourceImage().width === CANDY_CHARGE.width &&
+        !scene.anims.exists('candy:charge')) {
+        scene.anims.create({ key: 'candy:charge',
+            frames: scene.anims.generateFrameNumbers(CANDY_CHARGE.key,
+                { start: CANDY_CHARGE.start, end: CANDY_CHARGE.end }),
+            frameRate: CANDY_CHARGE.fps, repeat: CANDY_CHARGE.repeat
+        });
+    }
     if (hasSpriteFrames(scene, CANDY_LEVELUP, CANDY_LEVELUP) && !scene.anims.exists('candy:levelup')) {
         scene.anims.create({ key: 'candy:levelup',
             frames: scene.anims.generateFrameNumbers(CANDY_LEVELUP.key,
