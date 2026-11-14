@@ -1024,6 +1024,16 @@ function installCharacterSprites(scene, width, height, missingFrame, selectedPac
     assert.equal(art.textureKey, 'candy-jump');
     assert.equal(art.frame, 5);
     assert.equal(art.scale, 0.5);
+    // Charging must match the measured idle-art height and foot pivot;
+    // restoring idle/attack must remove the charge-only offset.
+    player.showCharge();
+    assert.equal(art.animationKey, 'candy:charge');
+    assert.equal(art.scale, 0.612);
+    assert.equal(art.y, 41);
+    player.endCharge();
+    player.update(controls, 0.02);
+    assert.equal(art.y, 40);
+    assert.equal(art.scale, 0.5);
     g.events.emit('shutdown');
 }
 console.log('PASS Candy animation: slower run, physics-driven jump, occasional blink, full-size airborne casting and deferred landing.');
