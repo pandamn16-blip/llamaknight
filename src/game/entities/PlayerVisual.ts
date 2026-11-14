@@ -1,7 +1,7 @@
 import type { Scene, GameObjects } from 'phaser';
 import { CHARACTER_SHIELDS, hasShieldSheet } from '../characters/shield';
 import type { CharacterVisual } from '../characters/definitions';
-import { CHARACTER_SPRITES, hasCharacterSheet, hasCandyLevelUp, resolveCharacterAnimation } from '../characters/spriteAnimations';
+import { CHARACTER_SPRITES, hasCharacterSheet, hasCandyLevelUp, hasCandyCharge, resolveCharacterAnimation } from '../characters/spriteAnimations';
 import type { PlayerAnimation, CharacterSpriteSheet } from '../characters/spriteAnimations';
 import type { RunState, RunPhase } from '../state/RunState';
 
@@ -61,7 +61,7 @@ export class PlayerVisual {
     private animated?: GameObjects.Sprite;
     private sheet?: CharacterSpriteSheet;
     private state?: PlayerAnimation;
-    private action?: 'attack' | 'hurt' | 'death' | 'levelup';
+    private action?: 'attack' | 'hurt' | 'death' | 'levelup' | 'charge';
     private wasAirborne = false;
     private landingSeconds = 0;
     private readonly landingDuration = 0.14;
@@ -128,7 +128,7 @@ export class PlayerVisual {
         const justLanded = candy && this.wasAirborne && !airborne;
         this.wasAirborne = airborne;
         if (justLanded) this.landingSeconds = this.landingDuration;
-        if (this.action && this.animated.anims.isPlaying) return;
+        if (this.action === 'charge' || (this.action && this.animated.anims.isPlaying)) return;
         this.action = undefined;
         // Keep the current visual size until its replacement frame is installed.
         // Resetting scale here caused a one-frame shrink of the *attack art*
@@ -163,6 +163,25 @@ export class PlayerVisual {
         // Scale is switched by play(), together with the new texture/frame.
         // Never shrink a still-visible casting pose during airborne transitions.
         return this.play(action, true);
+    }
+
+    showCharge(): void {
+        if (!this.animated || this.sheet?.key !== 'candy' ||
+            !hasCandyCharge(this.scene) || this.action === 'death') return;
+        this.resetIdleBlink();
+        this.action = 'charge';
+        this.state = undefined;
+        this.animated.play('candy:charge', true);
+        // Charge art is currently 362px rather than 256px per frame.
+        this.animated.setScale(this.sheet.scale * 256 / 362);
+    }
+
+    endCharge(): void {
+        if (this.action !== 'charge') return;
+        this.action = undefined;
+        this.state = undefined;
+        // Switching back to the right movement/attack pose happens on update()
+        // or showAction(), without altering the player's world position.
     }
 
     showLevelUp(): void {
