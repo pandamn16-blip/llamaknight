@@ -125,7 +125,12 @@ export function platformTop(groundY: number, platform: TerrainPlatform): number 
 }
 
 function covers(platform: TerrainPlatform, playerX: number): boolean {
-    return Math.abs(playerX - platform.x) <= platform.width / 2 - 4;
+    // Bridge sections have 6px of deliberate overlap between adjacent
+    // boards. Using the general 4px inset on *each* board leaves a 2px
+    // unsupported seam, causing a running player to drop between intact
+    // planks. Preserve a small overlap in the actual collision bounds.
+    const inset = platform.material === 'bridge' ? 2 : 4;
+    return Math.abs(playerX - platform.x) <= platform.width / 2 - inset;
 }
 
 export function landingSurfaceY(platforms: readonly TerrainPlatform[], groundY: number,
