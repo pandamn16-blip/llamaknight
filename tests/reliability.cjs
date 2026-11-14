@@ -348,6 +348,11 @@ for (let cycle = 0; cycle < 10; cycle++) {
     assert.equal(input.readActions().attack, true);
     g.input.emit('pointerupoutside', p3);
     assert.equal(input.readActions().attack, false);
+    // A touch tap can begin and end between two gameplay frames.
+    attack.emit('pointerdown', p3);
+    attack.emit('pointerup', p3);
+    assert.equal(input.readActions().attack, true);
+    assert.equal(input.readActions().attack, false);
     // Every original keyboard alias and edge-triggered menu key remains available.
     for (const [value, action] of [
         [input.cursors.left, 'left'], [input.keys.A, 'left'],
