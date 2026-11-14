@@ -1039,7 +1039,8 @@ function installCharacterSprites(scene, width, height, missingFrame, selectedPac
     assert.equal(art.scale, 0.612);
     assert.equal(art.y, 41);
     player.endCharge();
-    player.update(controls, 0.02);
+    art.anims.isPlaying = false;
+    player.update(controls, 0.2);
     assert.equal(art.y, 40);
     assert.equal(art.scale, 0.5);
     g.events.emit('shutdown');
