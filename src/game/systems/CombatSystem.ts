@@ -9,14 +9,18 @@ import type { ArcherSystem, Archer } from './ArcherSystem';
 import type { WorldSystem } from '../world/WorldSystem';
 import type { StructureSystem, Crate } from './StructureSystem';
 import { WEAPONS } from '../weapons/definitions';
-import { SWORD_SLASH_EFFECT, hasSwordSlashEffect, CANDY_PROJECTILE_EFFECT, hasCandyProjectileEffect } from '../weapons/slashEffect';
+import { SWORD_SLASH_EFFECT, hasSwordSlashEffect, CANDY_PROJECTILE_EFFECT, hasCandyProjectileEffect, CANDY_PROJECTILE_IDLE, hasCandyChargeOrb } from '../weapons/slashEffect';
 
 type Projectile = { sprite: Phaser.GameObjects.Container; speed: number; remaining: number;
     damage: number; halfWidth: number; halfHeight: number; direction: -1 | 1;
-    visual?: Phaser.GameObjects.Sprite; flightSeconds: number };
+    visual?: Phaser.GameObjects.Sprite; flightSeconds: number; charged?: boolean };
 
 export class CombatSystem {
     private projectiles: Projectile[] = [];
+    private chargeElapsed = 0;
+    private chargeHeldLast = false;
+    private chargeOrb?: Phaser.GameObjects.Sprite;
+    private readonly chargeSeconds = 0.65;
     private timers = new Set<Phaser.Time.TimerEvent>();
     private tweens = new Set<Phaser.Tweens.Tween>();
     private slashes = new Set<Phaser.GameObjects.Container | Phaser.GameObjects.Sprite>();
@@ -69,7 +73,51 @@ export class CombatSystem {
         else this.takeDamage(1);
     }
 
-    attack() {
+    // Candy has a separate hold-to-charge attack (C / CHG). Normal ATK is
+    // unchanged. Holding for 0.65s produces a 3x-damage magical projectile.
+    updateCharge(held: boolean, dt: number): boolean {
+        if (this.run.phase !== 'playing' || this.run.weapon.id !== 'candyShot') return false;
+        if (held && this.player.isShielding) held = false;
+        const wasHeld = this.chargeHeldLast;
+        this.chargeHeldLast = held;
+        if (held) {
+            if (!wasHeld) {
+                if (this.run.runTime * 1000 - this.run.weapon.lastAttack < this.run.weapon.cooldown) {
+                    this.chargeHeldLast = false;
+                    return true;
+                }
+                this.chargeElapsed = 0;
+                this.player.showCharge();
+                if (hasCandyChargeOrb(this.scene)) {
+                    this.chargeOrb = this.scene.add.sprite(this.player.x + this.player.facing * 48,
+                        this.player.y - 12, CANDY_PROJECTILE_IDLE.key, 0)
+                        .setDepth(8).setScale(0.32).setFlipX(this.player.facing === -1);
+                    this.chargeOrb.play('candy:orb-start');
+                    this.chargeOrb.once('animationcomplete', () => {
+                        if (this.chargeOrb?.active) this.chargeOrb.play('candy:orb-spin');
+                    });
+                }
+            }
+            this.chargeElapsed += dt;
+            if (this.chargeOrb) {
+                this.chargeOrb.setPosition(this.player.x + this.player.facing * 48, this.player.y - 12);
+                this.chargeOrb.setFlipX(this.player.facing === -1);
+            }
+            return true;
+        }
+        if (!wasHeld) return false;
+        const charged = this.chargeElapsed >= this.chargeSeconds;
+        this.chargeElapsed = 0;
+        this.player.endCharge();
+        this.chargeOrb?.destroy();
+        this.chargeOrb = undefined;
+        // Early release fires a normal shot; a fully charged release fires
+        // the strong shot. Both use the existing cooldown and swept collision.
+        this.attack(charged);
+        return true;
+    }
+
+    attack(charged = false) {
         if (this.run.phase !== 'playing' || this.player.isShielding) return;
         if ((this.run.runTime * 1000) - this.run.weapon.lastAttack < this.run.weapon.cooldown) return;
         this.run.weapon.lastAttack = (this.run.runTime * 1000);
@@ -83,8 +131,8 @@ export class CombatSystem {
                 // The visual animates independently; the existing projectile container
                 // retains its collision position, speed, hitbox, and lifetime.
                 const effect = CANDY_PROJECTILE_EFFECT;
-                const image = this.scene.add.sprite(0, 0, effect.key, 0)
-                    .setOrigin(0.5).setScale(0.3).setFlipX(direction === -1);
+                const image = this.scene.add.sprite(0, 0, effect.key, charged ? 2 : 0)
+                    .setOrigin(0.5).setScale(charged ? 0.4 : 0.3).setFlipX(direction === -1);
                 sprite.add(image);
                 // Frames 1-2 start the spell; frame 3 holds mid-flight, and
                 // frame 4 holds after sustained travel. Frames 5-6 are impact only.
@@ -97,10 +145,10 @@ export class CombatSystem {
                 ]);
             }
             this.projectiles.push({ sprite, speed: definition.projectileSpeed,
-                remaining: this.run.weapon.range, damage: this.run.weapon.damage,
+                remaining: this.run.weapon.range, damage: this.run.weapon.damage * (charged ? 3 : 1),
                 halfWidth: definition.hitHalfWidth, halfHeight: definition.hitHalfHeight, direction,
                 visual: hasCandyProjectileEffect(this.scene) ?
-                    sprite.list[0] as Phaser.GameObjects.Sprite : undefined, flightSeconds: 0 });
+                    sprite.list[0] as Phaser.GameObjects.Sprite : undefined, flightSeconds: 0, charged });
             return;
         }
         const range = this.run.weapon.range;
@@ -183,6 +231,14 @@ export class CombatSystem {
     }
 
     setVisualPhase(phase: RunPhase): void {
+        if (phase === 'gameOver') {
+            this.chargeOrb?.destroy(); this.chargeOrb = undefined;
+            this.chargeHeldLast = false; this.chargeElapsed = 0;
+            this.player.endCharge();
+        } else if (this.chargeOrb) {
+            if (phase === 'playing') this.chargeOrb.anims.resume();
+            else this.chargeOrb.anims.pause();
+        }
         for (const slash of this.slashes) {
             if (phase === 'gameOver') {
                 slash.destroy();
@@ -202,7 +258,8 @@ export class CombatSystem {
             shot.flightSeconds += dt;
             if (shot.visual) {
                 const t = shot.flightSeconds;
-                const frame = t < 0.045 ? 0 : t < 0.10 ? 1 : t < 0.28 ? 2 : 3;
+                const frame = shot.charged ? (t < 0.28 ? 2 : 3) :
+                    t < 0.045 ? 0 : t < 0.10 ? 1 : t < 0.28 ? 2 : 3;
                 shot.visual.setFrame(frame);
             }
             const fromX = shot.sprite.x;
@@ -334,6 +391,10 @@ export class CombatSystem {
     }
 
     destroy(): void {
+        this.chargeOrb?.destroy();
+        this.chargeOrb = undefined;
+        this.chargeHeldLast = false;
+        this.chargeElapsed = 0;
         this.scene.events.off(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
         for (const timer of this.timers) timer.remove(false);
         for (const tween of this.tweens) tween.remove();
