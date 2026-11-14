@@ -2475,7 +2475,7 @@ console.log('PASS shielding: front/back/left blocks at impact, late raise/releas
     const { BREAD } = load('enemies/bread');
     const { DIFFICULTY, difficultyRegion } = load('world/difficulty');
     assert.deepEqual([BREAD.patrolSpeed, BREAD.chaseSpeed, BREAD.detectionRange, BREAD.loseRange,
-        BREAD.windup, BREAD.recovery], [35, 125, 260, 400, 0.35, 0.9]);
+        BREAD.windup, BREAD.recovery], [35, 125, 390, 600, 0.35, 0.9]);
     const boundary = load('config/balance').BALANCE.player.startX + DIFFICULTY.metresPerRegion * WORLD.pixelsPerMetre;
     assert.equal(difficultyRegion(boundary - 1), 0); assert.equal(difficultyRegion(boundary), 1);
     const { game: g } = fixture();
