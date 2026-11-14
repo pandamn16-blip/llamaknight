@@ -31,9 +31,9 @@ export class CombatSystem {
     private slashes = new Set<Phaser.GameObjects.Container | Phaser.GameObjects.Sprite>();
     private fireTicks = new Set<Phaser.GameObjects.Text>();
     private damageTicks = new Set<Phaser.GameObjects.Text>();
-    private terrain?: Pick<WorldSystem, 'terrainImpact' | 'damageAtImpact' | 'strikeTerrain'>;
+    private terrain?: Pick<WorldSystem, 'terrainImpact' | 'projectileImpact' | 'damageAtImpact' | 'strikeTerrain'>;
 
-    setTerrain(terrain: Pick<WorldSystem, 'terrainImpact' | 'damageAtImpact' | 'strikeTerrain'>): void { this.terrain = terrain; }
+    setTerrain(terrain: Pick<WorldSystem, 'terrainImpact' | 'projectileImpact' | 'damageAtImpact' | 'strikeTerrain'>): void { this.terrain = terrain; }
 
     constructor(
         private scene: Phaser.Scene, private run: RunState, private player: Player,
@@ -309,7 +309,7 @@ export class CombatSystem {
             }
             // Terrain can stop candy shots too. Whichever object is contacted
             // first along this step takes the hit; no shooting through walls.
-            const terrainHit = this.terrain?.terrainImpact(fromX, shot.sprite.y,
+            const terrainHit = this.terrain?.projectileImpact(fromX, shot.sprite.y,
                 toX, shot.sprite.y);
             const enemyFirst = target && (!terrainHit ||
                 (target.sprite.x - fromX) * shot.direction <=
