@@ -3197,7 +3197,7 @@ console.log('PASS stationary shield: no horizontal movement or jumping, immediat
 }
 
 
-// Phase 1 environmental hazards: snap traps require three new attack presses,
+// Phase 1 environmental hazards: snap traps require two seconds of held X/touch,
 // while spikes reuse the shared damage cooldown and also affect Bread enemies.
 {
     const { game: g } = fixture('candy');
@@ -3214,17 +3214,35 @@ console.log('PASS stationary shield: no horizontal movement or jumping, immediat
     hazards.update();
     assert.equal(g.run.health, before - 1, 'Snap trap deals one initial damage');
     assert.equal(hazards.isPlayerTrapped, true);
-    assert.equal(hazards.handlePlayerAttack(true), true);
-    assert.equal(trap.trapHits, 1);
-    assert.equal(hazards.handlePlayerAttack(true), true);
-    assert.equal(trap.trapHits, 1, 'Holding attack does not count as repeated strikes');
-    hazards.handlePlayerAttack(false); hazards.handlePlayerAttack(true);
-    assert.equal(trap.trapHits, 2);
-    assert.equal(hazards.isPlayerTrapped, true, 'Two hits are insufficient');
-    hazards.handlePlayerAttack(false); hazards.handlePlayerAttack(true);
-    assert.equal(hazards.isPlayerTrapped, false, 'Third discrete strike frees Candy');
+    assert.equal(hazards.handlePlayerAttack(true), true, 'Attacks are blocked while trapped');
+    assert.equal(hazards.isPlayerTrapped, true);
+    assert.ok(hazards.escapeUi?.button.active, 'Escape button appears above captured trap');
+    hazards.updateEscape(true, 0.75);
+    assert.equal(hazards.isPlayerTrapped, true);
+    hazards.updateEscape(false, 0.05);
+    assert.equal(hazards.escapeProgress, 0, 'Releasing X resets escape progress');
+    hazards.updateEscape(true, 1.95);
+    assert.equal(hazards.isPlayerTrapped, true, 'Short hold is insufficient');
+    hazards.updateEscape(true, 0.05);
+    assert.equal(hazards.isPlayerTrapped, false, 'Two seconds holding X frees Candy');
+    assert.equal(hazards.escapeUi, undefined, 'Escape prompt is removed on release');
     assert.equal(hazards.broken.has('test:trap'), true);
     assert.equal(trap.pieces.every(piece => !piece.active), true, 'Broken trap visuals removed');
+
+    // Mobile can hold the in-world escape circle; keyboard X is not required.
+    const mobileTrap = hazards.make({ id: 'test:mobile-trap', x: g.player.x, kind: 'snap-trap' });
+    hazards.active.set(mobileTrap.placement.id, mobileTrap);
+    hazards.update();
+    const touchButton = hazards.escapeUi.button;
+    touchButton.emit('pointerdown', { id: 4 });
+    hazards.updateEscape(false, 1.25);
+    touchButton.emit('pointerup', { id: 4 });
+    hazards.updateEscape(false, 0.01);
+    assert.equal(hazards.escapeProgress, 0, 'Releasing touch resets progress');
+    touchButton.emit('pointerdown', { id: 4 });
+    hazards.updateEscape(false, 2);
+    assert.equal(hazards.isPlayerTrapped, false, 'Touch hold also breaks the trap');
+    assert.equal(touchButton.active, false, 'Escape button cleans up after freeing player');
 
     g.run.runTime = 3;
     const spikes = hazards.make({ id: 'test:spikes', x: g.player.x, kind: 'fixed-spikes' });
