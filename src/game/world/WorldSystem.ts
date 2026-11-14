@@ -303,6 +303,21 @@ export class WorldSystem {
         return nearest;
     }
 
+    // Candy's magic passes freely through elevated one-way platforms,
+    // including bridge planks. The actual ground and solid walls block it.
+    // Other projectiles (e.g. enemy fire) retain their existing collisions.
+    projectileImpact(x0: number, y0: number, x1: number, y1: number): TerrainImpact | undefined {
+        const mid = (x0 + x1) / 2;
+        let nearest = terrainSegmentImpact([], this.groundY,
+            x0, y0, x1, y1, this.gapsNear(mid));
+        for (const wall of this.wallsNear(mid)) {
+            const t = segmentWallImpact(x0, y0, x1, y1, wall, this.groundY);
+            if (t !== undefined && (!nearest || t < nearest.t))
+                nearest = { t, x: x0 + (x1 - x0) * t, y: y0 + (y1 - y0) * t };
+        }
+        return nearest;
+    }
+
     // A wall is genuinely solid, but its destruction immediately opens a route.
     resolvePlayerMovement(from: number, to: number, playerY: number): number {
         if (Math.abs(playerY - (this.groundY - BALANCE.player.groundOffset)) > 80)
