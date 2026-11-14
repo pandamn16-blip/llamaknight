@@ -172,8 +172,9 @@ export class PlayerVisual {
         this.action = 'charge';
         this.state = undefined;
         this.animated.play('candy:charge', true);
-        // Charge art is currently 362px rather than 256px per frame.
-        this.animated.setScale(this.sheet.scale * 256 / 362);
+        // chargefix.png has standard 256px frames. Keep the same origin
+        // and character scale as Candy's other artwork, including in midair.
+        this.animated.setScale(this.sheet.scale);
     }
 
     endCharge(): void {
