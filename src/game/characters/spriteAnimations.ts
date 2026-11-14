@@ -67,13 +67,11 @@ export const CHARACTER_SPRITES: Partial<Record<CharacterVisual, CharacterSpriteS
     }
 };
 
-// The replacement chargefix.png is still a 6x2 grid of 362x362
-// source frames (2172x724), despite its name. Load it correctly and
-// leave the canonical 256x256 standard for a later asset re-export.
+// Permanent game-ready 6-frame horizontal 256px charge strip.
 export const CANDY_CHARGE = {
-    key: 'candy-charge', path: 'characters/candy/chargefix.png',
-    width: 2172, height: 724, frameWidth: 362, frameHeight: 362,
-    start: 0, end: 11, fps: 12
+    key: 'candy-charge', path: 'characters/candy/charging.png',
+    width: 1536, height: 256, frameWidth: 256, frameHeight: 256,
+    start: 0, end: 5, fps: 12
 } as const;
 
 export function hasCandyCharge(scene: Scene): boolean {
