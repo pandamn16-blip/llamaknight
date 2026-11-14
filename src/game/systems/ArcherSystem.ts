@@ -45,12 +45,12 @@ export class ArcherSystem {
     private arrows: Arrow[] = [];
     private dying: Dying[] = [];
     private hitFlashTimers = new Map<string, Time.TimerEvent>();
-    private terrain?: Pick<WorldSystem, 'terrainImpact' | 'enemyHeadExposed'>;
+    private terrain?: Pick<WorldSystem, 'terrainImpact' | 'projectileImpact' | 'enemyHeadExposed'>;
     private immobilized: (id: string) => boolean = () => false;
     setImmobilized(check: (id: string) => boolean): void { this.immobilized = check; }
 
 
-    setTerrain(terrain: Pick<WorldSystem, 'terrainImpact' | 'enemyHeadExposed'>): void {
+    setTerrain(terrain: Pick<WorldSystem, 'terrainImpact' | 'projectileImpact' | 'enemyHeadExposed'>): void {
         this.terrain = terrain;
     }
 
@@ -379,7 +379,7 @@ export class ArcherSystem {
                 (this.player.y - fromY) * vy) / (vx * vx + vy * vy || 1)));
             const playerHit = Math.hypot(fromX + vx * t - this.player.x,
                 fromY + vy * t - this.player.y) < ARCHER.arrowHitRadius;
-            const terrainHit = this.terrain?.terrainImpact(fromX, fromY, toX, toY);
+            const terrainHit = this.terrain?.projectileImpact(fromX, fromY, toX, toY);
             // First collision in the swept segment wins. A ledge absorbs a
             // fireball before it can damage someone standing behind it.
             const hitsTerrain = !!terrainHit && (!playerHit || terrainHit.t <= t);
