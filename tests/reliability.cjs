@@ -767,6 +767,33 @@ console.log('PASS focused balance: 2-damage/500 ms forward sword sector, multi-t
     assert.equal(g.combatSystem.projectiles.length, 1);
     g.events.emit('shutdown');
 }
+{
+    const { game: g } = fixture('candy');
+    let normalAttacks = 0, chargeAnimations = 0;
+    g.player.showAttack = () => { normalAttacks++; return false; };
+    g.player.showCharge = () => { chargeAnimations++; };
+    // A quick tap must exclusively select attack.png (not charging.png).
+    g.combatSystem.updateCharge(true, 0.055);
+    assert.equal(chargeAnimations, 0, 'Quick J taps must not start charge artwork');
+    g.combatSystem.updateCharge(false, 0.01);
+    assert.equal(normalAttacks, 1, 'Normal J tap must start attack.png');
+    assert.equal(g.combatSystem.projectiles.length, 1, 'Normal Candy projectile stays available');
+    // After cooldown, a held press should use charging.png, not attack.png.
+    g.run.runTime = 1.0;
+    g.combatSystem.updateCharge(true, 0.07);
+    assert.equal(chargeAnimations, 0);
+    g.combatSystem.updateCharge(true, 0.10);
+    assert.equal(chargeAnimations, 1, 'Sustained J press starts charge art');
+    assert.equal(normalAttacks, 1);
+    g.combatSystem.updateCharge(true, 0.50);
+    g.combatSystem.updateCharge(false, 0.01);
+    assert.equal(normalAttacks, 1, 'Strong charge release must not restart normal attack.png');
+    assert.equal(g.combatSystem.projectiles.length, 2);
+    assert.equal(g.combatSystem.projectiles[1].damage, 3);
+    g.events.emit('shutdown');
+}
+console.log('PASS Candy tap visuals: attack.png only for quick tap; charge art only for sustained hold.');
+
 console.log('PASS Candy charge: hold threshold, strong release, early release and no duplicate projectiles.');
 
 // Holding J / ATK for a charged shot must not also fire the regular shot.
