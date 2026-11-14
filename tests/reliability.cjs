@@ -749,6 +749,18 @@ console.log('PASS focused balance: 2-damage/500 ms forward sword sector, multi-t
 }
 console.log('PASS Candy charge: hold threshold, strong release, early release and no duplicate projectiles.');
 
+// Holding J / ATK for a charged shot must not also fire the regular shot.
+// Verify the source's single-control wiring so a separate CHG key cannot regress.
+{
+    const inputSource = fs.readFileSync(path.join(__dirname, '../src/game/input/PlayerInput.ts'), 'utf8');
+    const gameSource = fs.readFileSync(path.join(__dirname, '../src/game/scenes/Game.ts'), 'utf8');
+    assert.ok(!inputSource.includes("'CHG', 'charge'"));
+    assert.ok(!inputSource.includes("this.keys.C.isDown"));
+    assert.ok(gameSource.includes('this.combatSystem.updateCharge(actions.attack && !consumedAttack, dt)'));
+}
+console.log('PASS Candy controls: existing J/ATK tap-or-hold drives charge, without separate key.');
+
+
 
 
 // Optional sprite sheets never replace a working placeholder with invalid frames.
@@ -1086,6 +1098,15 @@ console.log('PASS sprite integration: exact sheet/frame validation, animation ma
         assert.equal(png[24], 8, `${name}: 8-bit PNG`);
         assert.equal(png[25], 6, `${name}: RGBA PNG required`);
     }
+    const chargeFile = path.join(__dirname, '../public/assets/characters/candy/chargefix.png');
+    const chargePng = fs.readFileSync(chargeFile);
+    assert.equal(chargePng.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+    const chargeWidth = chargePng.readUInt32BE(16), chargeHeight = chargePng.readUInt32BE(20);
+    console.log(`Candy chargefix: ${chargeWidth} x ${chargeHeight}`);
+    assert.equal(chargeHeight, 256, 'chargefix must be a single 256px row');
+    assert.ok(chargeWidth >= 256 && chargeWidth % 256 === 0,
+        'chargefix must have exactly 256px-wide frames');
+    assert.equal(chargePng[25], 6, 'chargefix must be RGBA');
     console.log('PASS Candy assets: all seven currently configured source strips are 256px horizontal RGBA; hit.png still needs conversion.');
 }
 
