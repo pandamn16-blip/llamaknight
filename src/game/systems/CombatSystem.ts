@@ -18,11 +18,14 @@ type Projectile = { sprite: Phaser.GameObjects.Container; speed: number; remaini
 export class CombatSystem {
     private projectiles: Projectile[] = [];
     private chargeElapsed = 0;
+    private chargeVisualStarted = false;
     private chargeHeldLast = false;
     private pendingTapUntil = -1;
     get isCharging(): boolean { return this.run.weapon.id === 'candyShot' && this.chargeHeldLast; }
     private chargeOrb?: Phaser.GameObjects.Sprite;
     private readonly chargeSeconds = 0.65;
+    // Suppress charge artwork on a normal J tap; attack.png is the tap pose.
+    private readonly chargeVisualDelay = 0.14;
     private timers = new Set<Phaser.Time.TimerEvent>();
     private tweens = new Set<Phaser.Tweens.Tween>();
     private slashes = new Set<Phaser.GameObjects.Container | Phaser.GameObjects.Sprite>();
@@ -88,6 +91,11 @@ export class CombatSystem {
             if (!wasHeld) {
                 this.pendingTapUntil = -1;
                 this.chargeElapsed = 0;
+                this.chargeVisualStarted = false;
+            }
+            this.chargeElapsed += dt;
+            if (!this.chargeVisualStarted && this.chargeElapsed >= this.chargeVisualDelay) {
+                this.chargeVisualStarted = true;
                 this.player.showCharge();
                 if (hasCandyChargeOrb(this.scene)) {
                     const orb = this.scene.add.sprite(this.player.x + this.player.facing * 48,
@@ -100,7 +108,6 @@ export class CombatSystem {
                     });
                 }
             }
-            this.chargeElapsed += dt;
             if (this.chargeOrb) {
                 this.chargeOrb.setPosition(this.player.x + this.player.facing * 48, this.player.y - 12);
                 this.chargeOrb.setFlipX(this.player.facing === -1);
@@ -121,6 +128,7 @@ export class CombatSystem {
         }
         const charged = this.chargeElapsed >= this.chargeSeconds;
         this.chargeElapsed = 0;
+        this.chargeVisualStarted = false;
         this.player.endCharge();
         this.chargeOrb?.destroy();
         this.chargeOrb = undefined;
@@ -143,7 +151,9 @@ export class CombatSystem {
         const direction = this.player.facing;
         const definition = WEAPONS[this.run.weapon.id];
         const externalEffect = definition.kind === 'melee' && hasSwordSlashEffect(this.scene);
-        const artworkIncludesSlash = this.player.showAttack();
+        // Normal taps use attack.png; charged releases keep the charge pose
+        // until the handoff instead of restarting the normal attack animation.
+        const artworkIncludesSlash = charged ? false : this.player.showAttack();
         if (definition.kind === 'projectile') {
             // A charged spell begins exactly where the spinning orb was held,
             // so releasing J produces a continuous visual handoff.
@@ -258,6 +268,7 @@ export class CombatSystem {
         if (phase !== 'playing') {
             this.chargeOrb?.destroy(); this.chargeOrb = undefined;
             this.chargeHeldLast = false; this.chargeElapsed = 0;
+            this.chargeVisualStarted = false;
             this.pendingTapUntil = -1;
             this.player.endCharge();
         }
@@ -417,6 +428,7 @@ export class CombatSystem {
         this.chargeOrb = undefined;
         this.chargeHeldLast = false;
         this.chargeElapsed = 0;
+        this.chargeVisualStarted = false;
         this.scene.events.off(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
         for (const timer of this.timers) timer.remove(false);
         for (const tween of this.tweens) tween.remove();
