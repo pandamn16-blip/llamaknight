@@ -747,6 +747,21 @@ console.log('PASS focused balance: 2-damage/500 ms forward sword sector, multi-t
         'Releasing early retains standard shot damage');
     g.events.emit('shutdown');
 }
+{
+    const { game: g } = fixture('candy');
+    // A short tap inside the last 100ms of cooldown must be delivered
+    // when cooldown expires; earlier implementation discarded it on press.
+    g.run.weapon.lastAttack = 0;
+    g.run.runTime = 0.83;
+    g.combatSystem.updateCharge(true, 0.01);
+    assert.equal(g.combatSystem.isCharging, true);
+    g.combatSystem.updateCharge(false, 0.01);
+    assert.equal(g.combatSystem.projectiles.length, 0);
+    g.run.runTime = 0.91;
+    g.combatSystem.updateCharge(false, 0.08);
+    assert.equal(g.combatSystem.projectiles.length, 1);
+    g.events.emit('shutdown');
+}
 console.log('PASS Candy charge: hold threshold, strong release, early release and no duplicate projectiles.');
 
 // Holding J / ATK for a charged shot must not also fire the regular shot.
@@ -756,7 +771,8 @@ console.log('PASS Candy charge: hold threshold, strong release, early release an
     const gameSource = fs.readFileSync(path.join(__dirname, '../src/game/scenes/Game.ts'), 'utf8');
     assert.ok(!inputSource.includes("'CHG', 'charge'"));
     assert.ok(!inputSource.includes("this.keys.C.isDown"));
-    assert.ok(gameSource.includes('this.combatSystem.updateCharge(actions.attack && !consumedAttack, dt)'));
+    assert.ok(gameSource.includes('this.combatSystem.updateCharge(chargeHeld, dt)'));
+    assert.ok(gameSource.includes('movementLocked ? { ...actions, left: false, right: false, jump: false }'));
 }
 console.log('PASS Candy controls: existing J/ATK tap-or-hold drives charge, without separate key.');
 
@@ -1098,17 +1114,15 @@ console.log('PASS sprite integration: exact sheet/frame validation, animation ma
         assert.equal(png[24], 8, `${name}: 8-bit PNG`);
         assert.equal(png[25], 6, `${name}: RGBA PNG required`);
     }
-    const chargeFile = path.join(__dirname, '../public/assets/characters/candy/chargefix.png');
+    const chargeFile = path.join(__dirname, '../public/assets/characters/candy/charging.png');
     const chargePng = fs.readFileSync(chargeFile);
     assert.equal(chargePng.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
     const chargeWidth = chargePng.readUInt32BE(16), chargeHeight = chargePng.readUInt32BE(20);
-    console.log(`Candy chargefix: ${chargeWidth} x ${chargeHeight}`);
-    // chargefix is still the native 6x2 source (362px cells), not a
-    // converted horizontal 256px strip. Verify real layout to avoid
-    // slicing across sprites while using the corrected replacement art.
-    assert.equal(chargeWidth, 2172);
-    assert.equal(chargeHeight, 724);
-    assert.equal(chargeWidth / 362 * (chargeHeight / 362), 12);
+    console.log(`Candy charging: ${chargeWidth} x ${chargeHeight}`);
+    // charging.png is the six-frame horizontal strip, not the old 6x2 grid.
+    assert.equal(chargeWidth, 1536);
+    assert.equal(chargeHeight, 256);
+    assert.equal(chargeWidth / 256, 6);
     assert.equal(chargePng[25], 6, 'chargefix must be RGBA');
     console.log('PASS Candy assets: all seven currently configured source strips are 256px horizontal RGBA; hit.png still needs conversion.');
 }
