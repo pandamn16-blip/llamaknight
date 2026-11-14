@@ -19,7 +19,7 @@ export const CANDY_PROJECTILE_IDLE = {
 } as const;
 
 export function hasCandyChargeOrb(scene: Scene): boolean {
-    return scene.textures.exists(CANDY_PROJECTILE_IDLE.key) &&
+    return !!scene.textures?.exists(CANDY_PROJECTILE_IDLE.key) &&
         scene.textures.get(CANDY_PROJECTILE_IDLE.key).getSourceImage().width === CANDY_PROJECTILE_IDLE.width &&
         scene.anims.exists('candy:orb-start') && scene.anims.exists('candy:orb-spin');
 }
