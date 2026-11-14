@@ -2454,7 +2454,9 @@ console.log('PASS Bread AI: chase both directions, telegraph/one-hit active wind
     g.enemySystem.update(0.05, () => false);
     assert.equal(bread.brain.state, 'return');
     assert.ok(bread.sprite.x < 560);
-    for (let i = 0; i < 23; i++) g.enemySystem.update(0.05, () => false);
+    for (let i = 0; i < 18; i++) g.enemySystem.update(0.05, () => false);
+    assert.equal(bread.brain.state, 'return', 'Bread ignores nearby player until home');
+    g.enemySystem.update(0.05, () => false);
     assert.equal(bread.brain.state, 'idle', 'Bread completes return-home first');
     g.enemySystem.update(0.05, () => false);
     assert.equal(bread.brain.state, 'chase', 'Bread can re-aggro after arriving home');
