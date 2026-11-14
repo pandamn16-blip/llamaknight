@@ -1146,16 +1146,16 @@ console.log('PASS sprite integration: exact sheet/frame validation, animation ma
         assert.equal(png[24], 8, `${name}: 8-bit PNG`);
         assert.equal(png[25], 6, `${name}: RGBA PNG required`);
     }
-    const chargeFile = path.join(__dirname, '../public/assets/characters/candy/charging.png');
+    const chargeFile = path.join(__dirname, '../public/assets/characters/candy/chargeattack.png');
     const chargePng = fs.readFileSync(chargeFile);
     assert.equal(chargePng.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
     const chargeWidth = chargePng.readUInt32BE(16), chargeHeight = chargePng.readUInt32BE(20);
-    console.log(`Candy charging: ${chargeWidth} x ${chargeHeight}`);
-    // charging.png is the six-frame horizontal strip, not the old 6x2 grid.
-    assert.equal(chargeWidth, 1536);
+    console.log(`Candy chargeattack: ${chargeWidth} x ${chargeHeight}`);
+    // chargeattack.png is a twelve-frame horizontal strip of 256px cells.
+    assert.equal(chargeWidth, 3072);
     assert.equal(chargeHeight, 256);
-    assert.equal(chargeWidth / 256, 6);
-    assert.equal(chargePng[25], 6, 'chargefix must be RGBA');
+    assert.equal(chargeWidth / 256, 12);
+    assert.equal(chargePng[25], 6, 'chargeattack must be RGBA');
     console.log('PASS Candy assets: all seven currently configured source strips are 256px horizontal RGBA; hit.png still needs conversion.');
 }
 
