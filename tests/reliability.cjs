@@ -721,6 +721,36 @@ console.log('PASS selection: mouse/touch cards, keyboard navigation/direct choic
 }
 console.log('PASS focused balance: 2-damage/500 ms forward sword sector, multi-target single-hit swings, cooldown boundaries, multi-kill XP/upgrades, and 1-damage/900 ms non-piercing Candy shots.');
 
+{
+    const { game: g } = fixture('candy');
+    // Charging requires a hold; releasing a complete charge fires a single
+    // stronger projectile without altering the standard Candy shot.
+    assert.equal(g.combatSystem.updateCharge(true, 0.40), true);
+    assert.equal(g.combatSystem.projectiles.length, 0);
+    assert.equal(g.combatSystem.updateCharge(true, 0.26), true);
+    assert.equal(g.combatSystem.updateCharge(false, 0.01), true);
+    assert.equal(g.combatSystem.projectiles.length, 1);
+    const shot = g.combatSystem.projectiles[0];
+    assert.equal(shot.damage, 3);
+    assert.equal(shot.charged, true);
+    assert.equal(g.run.weapon.lastAttack, 0);
+    assert.equal(g.combatSystem.updateCharge(false, 0.01), false);
+    assert.equal(g.combatSystem.projectiles.length, 1);
+    g.events.emit('shutdown');
+}
+{
+    const { game: g } = fixture('candy');
+    g.combatSystem.updateCharge(true, 0.20);
+    g.combatSystem.updateCharge(false, 0.01);
+    assert.equal(g.combatSystem.projectiles.length, 1);
+    assert.equal(g.combatSystem.projectiles[0].damage, 1,
+        'Releasing early retains standard shot damage');
+    g.events.emit('shutdown');
+}
+console.log('PASS Candy charge: hold threshold, strong release, early release and no duplicate projectiles.');
+
+
+
 // Optional sprite sheets never replace a working placeholder with invalid frames.
 const { CHARACTER_SPRITES, hasCharacterSheet, loadCharacterSheets, registerCharacterAnimations } = load('characters/spriteAnimations');
 function installCharacterSprites(scene, width, height, missingFrame, selectedPack = CHARACTER_SPRITES.llama) {
