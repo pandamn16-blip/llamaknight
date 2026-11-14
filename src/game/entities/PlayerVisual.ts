@@ -172,9 +172,8 @@ export class PlayerVisual {
         this.action = 'charge';
         this.state = undefined;
         this.animated.play('candy:charge', true);
-        // The replacement art still has 362px source cells. Render them at
-        // an equivalent 256px footprint while preserving the player's hitbox.
-        this.animated.setScale(this.sheet.scale * 256 / 362);
+        // charging.png uses standard 256px cells and Candy's normal origin.
+        this.animated.setScale(this.sheet.scale);
     }
 
     endCharge(): void {
