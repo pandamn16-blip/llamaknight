@@ -172,10 +172,10 @@ export class PlayerVisual {
         this.action = 'charge';
         this.state = undefined;
         this.animated.play('candy:charge', true);
-        // The charging frames contain a smaller illustrated Candy than the
-        // usual idle frames. Match her calibrated attack rendering size,
+        // Charge artwork is slightly larger than Candy's attack artwork at
+        // the same scale. Use a calibrated 0.60 charge scale (vs 0.64 attack)
         // without changing the physics container or collision bounds.
-        this.animated.setScale(this.sheet.scale * 1.28);
+        this.animated.setScale(this.sheet.scale * 1.20);
     }
 
     endCharge(): void {
