@@ -13,8 +13,8 @@ import { breadPlacementId, generateSection, sectionSeed, sectionWindow } from '.
 export type BreadState = 'idle' | 'patrol' | 'chase' | 'windup' | 'active' | 'recover' | 'return';
 type Brain = { state: BreadState; remaining: number; facing: -1 | 1; targetX: number; cycle: number; attackSpent: boolean };
 export type Enemy = { sprite: Phaser.GameObjects.Container; speed: number; hp: number; maxHealth: number; damage: number; difficultyTier: number; placementX: number; placementId: string;
-    brain: Brain; twig?: Phaser.GameObjects.Rectangle; art?: Phaser.GameObjects.Sprite; alert: Phaser.GameObjects.Text; animation?: BreadAnimation; deathElapsed?: number };
-type EnemyRecord = { hp: number; maxHealth: number; damage: number; difficultyTier: number; speed: number; defeated: boolean; x: number; placementX: number; brain: Brain };
+    brain: Brain; twig?: Phaser.GameObjects.Rectangle; art?: Phaser.GameObjects.Sprite; alert: Phaser.GameObjects.Text; animation?: BreadAnimation; deathElapsed?: number; velocityY: number };
+type EnemyRecord = { hp: number; maxHealth: number; damage: number; difficultyTier: number; speed: number; defeated: boolean; x: number; y: number; velocityY: number; placementX: number; brain: Brain };
 
 export class EnemySystem {
     private items: Enemy[] = [];
@@ -22,7 +22,7 @@ export class EnemySystem {
     private occupied = new Map<number, Set<string>>();
     private dying = new Set<Enemy>();
     private records = new Map<string, EnemyRecord>();
-    private terrain?: Pick<WorldSystem, 'enemyHeadExposed'>;
+    private terrain?: Pick<WorldSystem, 'enemyHeadExposed' | 'standingY' | 'landingY'>;
     private wallResolver?: (from: number, to: number, y: number) => number;
     setWallResolver(resolver: (from: number, to: number, y: number) => number): void {
         this.wallResolver = resolver;
@@ -31,7 +31,7 @@ export class EnemySystem {
     setImmobilized(check: (id: string) => boolean): void { this.immobilized = check; }
 
 
-    setTerrain(terrain: Pick<WorldSystem, 'enemyHeadExposed'>): void { this.terrain = terrain; }
+    setTerrain(terrain: Pick<WorldSystem, 'enemyHeadExposed' | 'standingY' | 'landingY'>): void { this.terrain = terrain; }
 
     constructor(private scene: Phaser.Scene, private run: RunState, private groundY: number, private player?: Pick<Player, 'x' | 'y'>) {
         scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
@@ -110,7 +110,10 @@ export class EnemySystem {
         for (let i = this.items.length - 1; i >= 0; i--) {
             const enemy = this.items[i];
             if (enemy.sprite.x < camera.scrollX - cleanup || enemy.sprite.x > camera.scrollX + camera.width + cleanup) {
-                this.records.get(enemy.placementId)!.hp = enemy.hp;
+                const record = this.records.get(enemy.placementId)!;
+                record.hp = enemy.hp;
+                record.y = enemy.sprite.y;
+                record.velocityY = enemy.velocityY;
                 enemy.sprite.destroy();
                 this.items.splice(i, 1);
             }
@@ -150,6 +153,7 @@ export class EnemySystem {
             if (!near) { enemy.art?.anims.pause(); continue; }
             enemy.art?.anims.resume();
             if (this.player && !this.immobilized(enemy.placementId)) this.advance(enemy, dt, onAttack);
+            this.advanceVertical(enemy, dt);
             this.syncVisual(enemy);
             if (this.run.phase !== 'playing') return;
         }
@@ -169,7 +173,7 @@ export class EnemySystem {
         const homeDistance = Math.abs(enemy.sprite.x - enemy.placementX);
         const playerOnTop = this.isPlayerStandingOn(enemy, player.x, player.y);
         if (['idle', 'patrol', 'return'].includes(brain.state) && distance <= BREAD.detectionRange &&
-            closeHeight <= BREAD.detectionHeight && (brain.state !== 'return' || homeDistance <= BREAD.patrolDistance)) brain.state = 'chase';
+            closeHeight <= BREAD.detectionHeight && brain.state !== 'return') brain.state = 'chase';
         if (brain.state === 'chase' && (distance > BREAD.loseRange || homeDistance > BREAD.territoryLeash)) brain.state = 'return';
         switch (brain.state) {
             case 'idle':
@@ -212,6 +216,44 @@ export class EnemySystem {
                 this.unindex(enemy.placementId, record.x); this.index(enemy.placementId, enemy.sprite.x);
             }
             record.x = enemy.sprite.x;
+        }
+    }
+
+    private advanceVertical(enemy: Enemy, dt: number): void {
+        // Bread feet are 32px below their body origin. Check the actual terrain
+        // rather than pinning every Bread to its original spawn elevation.
+        const footOffset = BALANCE.enemy.groundOffset;
+        const oldFoot = enemy.sprite.y + footOffset;
+        const standing = this.terrain?.standingY(enemy.sprite.x, oldFoot);
+        if (standing !== undefined && enemy.velocityY >= 0) {
+            enemy.sprite.y = standing - footOffset;
+            enemy.velocityY = 0;
+        } else if (this.terrain) {
+            enemy.velocityY += BALANCE.player.gravity * dt;
+            const nextFoot = oldFoot + enemy.velocityY * dt;
+            const land = this.terrain.landingY(enemy.sprite.x, oldFoot, nextFoot);
+            if (land !== undefined) {
+                enemy.sprite.y = land - footOffset;
+                enemy.velocityY = 0;
+            } else {
+                enemy.sprite.y = nextFoot - footOffset;
+            }
+        }
+        const record = this.records.get(enemy.placementId);
+        if (record) {
+            record.y = enemy.sprite.y;
+            record.velocityY = enemy.velocityY;
+        }
+        // Falling into a pit removes the Bread permanently for this run,
+        // without awarding player kills or XP.
+        if (enemy.sprite.y > this.scene.scale.height + 120) {
+            if (record) {
+                record.defeated = true;
+                this.unindex(enemy.placementId, record.x);
+            }
+            const index = this.items.indexOf(enemy);
+            if (index >= 0) this.items.splice(index, 1);
+            enemy.sprite.destroy();
         }
     }
 
@@ -273,13 +315,14 @@ export class EnemySystem {
             const speedRoll = sectionSeed(this.run.seed, worldX) / 0x100000000;
             record = {
                 speed: BREAD.chaseSpeed, hp: maxHealth, maxHealth, damage: BREAD.damage, difficultyTier,
-                defeated: false, x: worldX, placementX: worldX,
+                defeated: false, x: worldX, y: this.groundY - BALANCE.enemy.groundOffset,
+                velocityY: 0, placementX: worldX,
                 brain: { state: 'idle', remaining: BREAD.idleMin + speedRoll * (BREAD.idleMax - BREAD.idleMin),
                     facing: -1, targetX: worldX, cycle: 0, attackSpent: false }
             };
             this.records.set(id, record); this.index(id, record.x);
         }
-        const sprite = this.scene.add.container(record.x, this.groundY - BALANCE.enemy.groundOffset).setDepth(6);
+        const sprite = this.scene.add.container(record.x, record.y).setDepth(6);
         let art: Phaser.GameObjects.Sprite | undefined;
         let twig: Phaser.GameObjects.Rectangle | undefined;
         if (hasBreadAnimations(this.scene)) {
@@ -302,7 +345,7 @@ export class EnemySystem {
             .setOrigin(0.5).setVisible(false);
         sprite.add(alert);
         const enemy: Enemy = { sprite, art, twig, alert, brain: record.brain, speed: record.speed, hp: record.hp, maxHealth: record.maxHealth, damage: record.damage, difficultyTier: record.difficultyTier,
-            placementX: record.placementX, placementId: id };
+            placementX: record.placementX, placementId: id, velocityY: record.velocityY };
         this.syncVisual(enemy);
         this.items.push(enemy);
         return enemy;
