@@ -23,13 +23,25 @@ export class HazardSystem {
     private enemyTrappedUntil = new Map<string, number>();
     private lastEnemyHit = new Map<string, number>();
     private playerTrap?: string;
-    private attackWasHeld = false;
+    private escapeProgress = 0;
+    private readonly escapeSeconds = 2;
+    private escapePointer?: number;
+    private escapeUi?: {
+        button: Phaser.GameObjects.Arc;
+        label: Phaser.GameObjects.Text;
+        timer: Phaser.GameObjects.Text;
+        track: Phaser.GameObjects.Rectangle;
+        fill: Phaser.GameObjects.Rectangle;
+    };
 
     constructor(private scene: Phaser.Scene, private run: RunState,
         private groundY: number, private player: Player,
         private enemies: EnemySystem, private archers: ArcherSystem,
         private hurtPlayer: (amount: number) => boolean) {
         scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
+        scene.input?.on('pointerup', this.releaseEscapePointer, this);
+        scene.input?.on('pointerupoutside', this.releaseEscapePointer, this);
+        scene.input?.on('gameout', this.clearEscapeHold, this);
     }
 
     get isPlayerTrapped(): boolean { return this.playerTrap !== undefined; }
@@ -94,26 +106,78 @@ export class HazardSystem {
 
     private breakTrap(hazard: Hazard): void {
         this.broken.add(hazard.placement.id);
-        if (this.playerTrap === hazard.placement.id) this.playerTrap = undefined;
+        if (this.playerTrap === hazard.placement.id) {
+            this.playerTrap = undefined;
+            this.clearEscapePrompt();
+        }
         hazard.pieces.forEach(piece => piece.destroy());
         this.active.delete(hazard.placement.id);
     }
 
-    // An attack press is deliberately counted once per button press, regardless
-    // of weapon level/damage. Both Llama Crunch and Candy can always escape.
-    handlePlayerAttack(pressed: boolean): boolean {
-        const fresh = pressed && !this.attackWasHeld;
-        this.attackWasHeld = pressed;
-        const trapped = this.playerTrap;
-        if (!trapped) return false;
-        const hazard = this.active.get(trapped);
-        if (!hazard) { this.playerTrap = undefined; return false; }
-        if (fresh) {
-            hazard.trapHits++;
-            this.updateVisual(hazard);
-            if (hazard.trapHits >= 3) this.breakTrap(hazard);
+    private showEscapePrompt(x: number): void {
+        this.clearEscapePrompt();
+        // The prompt is anchored to the caught trap in world coordinates and
+        // is itself a large touch target on mobile. No permanent extra HUD button.
+        const y = this.groundY - 112;
+        const button = this.scene.add.circle(x, y, 67, 0x25263f, 0.86)
+            .setDepth(35).setStrokeStyle(3, 0xffd878).setInteractive();
+        const label = this.scene.add.text(x, y - 36, 'HOLD X', {
+            fontSize: '19px', color: '#ffffff', fontStyle: 'bold'
+        }).setOrigin(0.5).setDepth(36);
+        const timer = this.scene.add.text(x, y - 8, 'HOLD / TOUCH', {
+            fontSize: '14px', color: '#ffe1a2'
+        }).setOrigin(0.5).setDepth(36);
+        const track = this.scene.add.rectangle(x, y + 26, 104, 10, 0x0c101c)
+            .setDepth(36).setOrigin(0.5);
+        const fill = this.scene.add.rectangle(x - 52, y + 26, 104, 8, 0x80ecc0)
+            .setDepth(37).setOrigin(0, 0.5).setScale(0, 1);
+        button.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+            if (this.run.phase === 'playing' && this.isPlayerTrapped)
+                this.escapePointer = pointer.id;
+        });
+        button.on('pointerup', this.releaseEscapePointer, this);
+        button.on('pointerout', this.releaseEscapePointer, this);
+        this.escapeUi = { button, label, timer, track, fill };
+    }
+
+    private releaseEscapePointer(pointer: Phaser.Input.Pointer): void {
+        if (this.escapePointer === pointer.id) this.escapePointer = undefined;
+    }
+
+    private clearEscapeHold(): void { this.escapePointer = undefined; }
+
+    private clearEscapePrompt(): void {
+        this.escapePointer = undefined;
+        this.escapeProgress = 0;
+        if (this.escapeUi) Object.values(this.escapeUi).forEach(object => object.destroy());
+        this.escapeUi = undefined;
+    }
+
+    // Holding X on keyboard or the in-world button on mobile for two
+    // uninterrupted seconds breaks a bear trap. Letting go resets progress.
+    updateEscape(keyHeld: boolean, dt: number): void {
+        if (!this.playerTrap || this.run.phase !== 'playing') return;
+        const hazard = this.active.get(this.playerTrap);
+        if (!hazard) {
+            this.playerTrap = undefined;
+            this.clearEscapePrompt();
+            return;
         }
-        return true;
+        const held = keyHeld || this.escapePointer !== undefined;
+        this.escapeProgress = held
+            ? Math.min(this.escapeSeconds, this.escapeProgress + Math.max(0, dt))
+            : 0;
+        this.escapeUi?.timer.setText(held
+            ? `${Math.ceil(Math.max(0, this.escapeSeconds - this.escapeProgress) * 10) / 10}s`
+            : 'HOLD / TOUCH');
+        this.escapeUi?.fill.setScale(this.escapeProgress / this.escapeSeconds, 1);
+        if (this.escapeProgress >= this.escapeSeconds) this.breakTrap(hazard);
+    }
+
+    // Attacking is disabled while caught: escape is exclusively X or the
+    // hold button, so J remains available for combat after getting free.
+    handlePlayerAttack(_pressed: boolean): boolean {
+        return this.isPlayerTrapped;
     }
 
     private hitEnemy(enemy: Enemy | Archer): void {
@@ -141,6 +205,7 @@ export class HazardSystem {
             if (hazard.placement.kind === 'snap-trap') {
                 if (playerNear && !this.playerTrap) {
                     this.playerTrap = hazard.placement.id;
+                    this.showEscapePrompt(x);
                     this.run.velocityY = 0;
                     this.run.onGround = true;
                     this.hurtPlayer(1);
@@ -174,6 +239,10 @@ export class HazardSystem {
 
     destroy(): void {
         this.scene.events.off(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
+        this.scene.input?.off('pointerup', this.releaseEscapePointer, this);
+        this.scene.input?.off('pointerupoutside', this.releaseEscapePointer, this);
+        this.scene.input?.off('gameout', this.clearEscapeHold, this);
+        this.clearEscapePrompt();
         for (const hazard of this.active.values()) hazard.pieces.forEach(piece => piece.destroy());
         this.active.clear();
         this.broken.clear();
