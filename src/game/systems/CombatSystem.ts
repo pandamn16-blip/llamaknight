@@ -19,6 +19,8 @@ export class CombatSystem {
     private projectiles: Projectile[] = [];
     private chargeElapsed = 0;
     private chargeHeldLast = false;
+    private pendingTapUntil = -1;
+    get isCharging(): boolean { return this.run.weapon.id === 'candyShot' && this.chargeHeldLast; }
     private chargeOrb?: Phaser.GameObjects.Sprite;
     private readonly chargeSeconds = 0.65;
     private timers = new Set<Phaser.Time.TimerEvent>();
@@ -81,11 +83,10 @@ export class CombatSystem {
         const wasHeld = this.chargeHeldLast;
         this.chargeHeldLast = held;
         if (held) {
+            // Do not discard presses during cooldown: that previously made
+            // ordinary quick J taps do nothing on release.
             if (!wasHeld) {
-                if (this.run.runTime * 1000 - this.run.weapon.lastAttack < this.run.weapon.cooldown) {
-                    this.chargeHeldLast = false;
-                    return true;
-                }
+                this.pendingTapUntil = -1;
                 this.chargeElapsed = 0;
                 this.player.showCharge();
                 if (hasCandyChargeOrb(this.scene)) {
@@ -106,7 +107,18 @@ export class CombatSystem {
             }
             return true;
         }
-        if (!wasHeld) return false;
+        if (!wasHeld) {
+            // A short tap may have been released just before cooldown expired.
+            // Retry briefly rather than silently losing the input.
+            if (this.pendingTapUntil >= this.run.runTime * 1000 &&
+                this.run.runTime * 1000 - this.run.weapon.lastAttack >= this.run.weapon.cooldown) {
+                this.pendingTapUntil = -1;
+                this.attack(false);
+            } else if (this.pendingTapUntil < this.run.runTime * 1000) {
+                this.pendingTapUntil = -1;
+            }
+            return false;
+        }
         const charged = this.chargeElapsed >= this.chargeSeconds;
         this.chargeElapsed = 0;
         this.player.endCharge();
@@ -114,7 +126,13 @@ export class CombatSystem {
         this.chargeOrb = undefined;
         // Early release fires a normal shot; a fully charged release fires
         // the strong shot. Both use the existing cooldown and swept collision.
-        this.attack(charged);
+        // A normal tap released during the final part of cooldown is
+        // buffered for 180ms; a full charge still fires when ready.
+        if (!charged && this.run.runTime * 1000 - this.run.weapon.lastAttack < this.run.weapon.cooldown) {
+            this.pendingTapUntil = this.run.runTime * 1000 + 180;
+        } else {
+            this.attack(charged);
+        }
         return true;
     }
 
@@ -240,6 +258,7 @@ export class CombatSystem {
         if (phase !== 'playing') {
             this.chargeOrb?.destroy(); this.chargeOrb = undefined;
             this.chargeHeldLast = false; this.chargeElapsed = 0;
+            this.pendingTapUntil = -1;
             this.player.endCharge();
         }
         for (const slash of this.slashes) {
