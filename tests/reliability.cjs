@@ -1024,6 +1024,14 @@ function installCharacterSprites(scene, width, height, missingFrame, selectedPac
     assert.equal(art.textureKey, 'candy-jump');
     assert.equal(art.frame, 5);
     assert.equal(art.scale, 0.5);
+    // The standard mock actor-sheet fixture omits optional charge textures.
+    // Install the real 12-frame charge metadata before testing its pose.
+    const textureExists = g.textures.exists, getTexture = g.textures.get;
+    g.textures.exists = key => key === 'candy-charge' || textureExists(key);
+    g.textures.get = key => key === 'candy-charge'
+        ? { getSourceImage: () => ({ width: 3072, height: 256 }) }
+        : getTexture(key);
+    registerCharacterAnimations(g);
     // Charging must match the measured idle-art height and foot pivot;
     // restoring idle/attack must remove the charge-only offset.
     player.showCharge();
