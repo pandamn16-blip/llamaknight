@@ -174,11 +174,14 @@ export class PlayerVisual {
         this.action = 'charge';
         this.state = undefined;
         this.animated.play('candy:charge', true);
-        // Fine-tuned separately from the attack artwork: slightly smaller
-        // and shifted right (+6px when facing right, mirrored to the left).
-        // Only the sprite's visual position changes, never the player hitbox.
-        this.animated.setScale(this.sheet.scale * 1.16);
+        // Pixel-measured from idle.png and chargeattack.png:
+        // idle spans ~208px vertically at 0.50; charge ~170px, so 0.612
+        // preserves character height. Their foot bounds differ by <1 world px.
+        // Move charge 1px down to land on the idle baseline. Preserve the
+        // previously tuned 6px facing-aware horizontal adjustment.
+        this.animated.setScale(0.612);
         this.animated.x = this.sheet.offsetX + (this.animated.flipX ? -6 : 6);
+        this.animated.y = this.sheet.offsetY + 1;
     }
 
     endCharge(): void {
@@ -248,6 +251,7 @@ export class PlayerVisual {
         this.animated.setScale(this.sheet.scale * (state === 'attack' ? 1.28 : 1));
         // Return to the standard horizontal anchor whenever charge ends.
         this.animated.x = this.sheet.offsetX;
+        this.animated.y = this.sheet.offsetY;
     }
 
     private play(state: PlayerAnimation, restart = false): boolean {
