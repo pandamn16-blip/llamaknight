@@ -109,6 +109,8 @@ export class PlayerVisual {
         if (this.animated) {
             // Phaser mirrors the frame in place. Its origin, offsets and foot pivot stay fixed.
             this.animated.setFlipX(direction === -1);
+            if (this.sheet?.key === 'candy' && this.action === 'charge')
+                this.animated.setX(this.sheet.offsetX + (direction === -1 ? -6 : 6));
         } else {
             // Candy and missing-sheet fallbacks are shapes, which have no Flip component.
             // Mirror only those visual children around their original local coordinates.
@@ -172,10 +174,11 @@ export class PlayerVisual {
         this.action = 'charge';
         this.state = undefined;
         this.animated.play('candy:charge', true);
-        // Charge artwork is slightly larger than Candy's attack artwork at
-        // the same scale. Use a calibrated 0.60 charge scale (vs 0.64 attack)
-        // without changing the physics container or collision bounds.
-        this.animated.setScale(this.sheet.scale * 1.20);
+        // Fine-tuned separately from the attack artwork: slightly smaller
+        // and shifted right (+6px when facing right, mirrored to the left).
+        // Only the sprite's visual position changes, never the player hitbox.
+        this.animated.setScale(this.sheet.scale * 1.16);
+        this.animated.setX(this.sheet.offsetX + (this.animated.flipX ? -6 : 6));
     }
 
     endCharge(): void {
@@ -243,6 +246,8 @@ export class PlayerVisual {
         // Keep the full-size casting artwork through the entire attack.
         // Only change scale after a different animation has been installed.
         this.animated.setScale(this.sheet.scale * (state === 'attack' ? 1.28 : 1));
+        // Return to the standard horizontal anchor whenever charge ends.
+        this.animated.setX(this.sheet.offsetX);
     }
 
     private play(state: PlayerAnimation, restart = false): boolean {
