@@ -172,9 +172,9 @@ export class PlayerVisual {
         this.action = 'charge';
         this.state = undefined;
         this.animated.play('candy:charge', true);
-        // chargefix.png has standard 256px frames. Keep the same origin
-        // and character scale as Candy's other artwork, including in midair.
-        this.animated.setScale(this.sheet.scale);
+        // The replacement art still has 362px source cells. Render them at
+        // an equivalent 256px footprint while preserving the player's hitbox.
+        this.animated.setScale(this.sheet.scale * 256 / 362);
     }
 
     endCharge(): void {
