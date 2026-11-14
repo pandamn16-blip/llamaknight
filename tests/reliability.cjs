@@ -3219,6 +3219,9 @@ console.log('PASS stationary shield: no horizontal movement or jumping, immediat
     assert.ok(hazards.escapeUi?.button.active, 'Escape button appears above captured trap');
     hazards.updateEscape(true, 0.75);
     assert.equal(hazards.isPlayerTrapped, true);
+    hazards.resetEscapeHold();
+    assert.equal(hazards.escapeProgress, 0, 'Pausing cancels partial escape');
+    hazards.updateEscape(true, 0.75);
     hazards.updateEscape(false, 0.05);
     assert.equal(hazards.escapeProgress, 0, 'Releasing X resets escape progress');
     hazards.updateEscape(true, 1.95);
