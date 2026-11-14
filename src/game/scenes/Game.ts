@@ -311,8 +311,9 @@ export class Game extends Phaser.Scene {
             this.archerSystem?.prepare();
             this.structures.prepare();
             this.hazardSystem?.update();
-            const consumedAttack = this.hazardSystem?.handlePlayerAttack(actions.attack) ?? false;
-            if (actions.attack && !consumedAttack) this.combatSystem.attack();
+            const charging = this.combatSystem.updateCharge(this.playerInput.chargeHeld(), dt);
+            const consumedAttack = this.hazardSystem?.handlePlayerAttack(actions.attack && !charging) ?? false;
+            if (actions.attack && !consumedAttack && !charging) this.combatSystem.attack();
             this.combatSystem.update(dt);
             this.enemySystem.update(dt, (enemy) => this.combatSystem.resolveEnemyAttack(enemy));
             this.archerSystem?.update(dt);
