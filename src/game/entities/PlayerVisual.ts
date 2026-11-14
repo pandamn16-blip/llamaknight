@@ -172,8 +172,10 @@ export class PlayerVisual {
         this.action = 'charge';
         this.state = undefined;
         this.animated.play('candy:charge', true);
-        // charging.png uses standard 256px cells and Candy's normal origin.
-        this.animated.setScale(this.sheet.scale);
+        // The charging frames contain a smaller illustrated Candy than the
+        // usual idle frames. Match her calibrated attack rendering size,
+        // without changing the physics container or collision bounds.
+        this.animated.setScale(this.sheet.scale * 1.28);
     }
 
     endCharge(): void {
