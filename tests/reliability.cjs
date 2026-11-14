@@ -3326,6 +3326,22 @@ console.log('PASS Candy collision: passes through floating ledges, blocked by wa
     const bridge = pieces.find(p => p.feature === 'bridge');
     assert.ok(bridge, 'Advanced terrain contains destructible bridge boards');
     const bridgeTop = g.groundY - bridge.height;
+    // Intact brown bridge boards must form one uninterrupted walkable surface.
+    // Previously the 4px inset on each overlapping board left a 2px hole at
+    // every seam: a continuously moving player fell straight through it.
+    const boards = pieces.filter(p => p.feature === 'bridge' &&
+        p.id.startsWith(bridge.id.slice(0, bridge.id.indexOf(':board:')) + ':board:'))
+        .sort((a, b) => a.x - b.x);
+    assert.ok(boards.length >= 2, 'Bridge has neighbouring boards');
+    for (let i = 0; i < boards.length - 1; i++) {
+        const seam = (boards[i].x + boards[i + 1].x) / 2;
+        for (let x = seam - 2; x <= seam + 2; x += 0.25) {
+            assert.equal(g.world.standingY(x, bridgeTop), bridgeTop,
+                'Running across intact board seams must preserve support');
+            assert.equal(g.world.landingY(x, bridgeTop - 5, bridgeTop + 5), bridgeTop,
+                'Landing while moving over a board seam must succeed');
+        }
+    }
     assert.equal(g.world.landingY(bridge.x, bridgeTop - 4, bridgeTop + 4), bridgeTop);
     assert.equal(g.world.damageAtImpact(bridge.x, bridgeTop + 2, 1), 1);
     assert.equal(g.world.damageAtImpact(bridge.x, bridgeTop + 2, 1), 1);
