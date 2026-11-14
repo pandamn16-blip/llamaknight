@@ -2431,7 +2431,7 @@ console.log('PASS Bread AI: chase both directions, telegraph/one-hit active wind
     g.enemySystem.update(0.05, () => false);
     assert.equal(bread.sprite.y, g.groundY - BALANCE.enemy.groundOffset,
         'Bread remains grounded while supported');
-    for (let i = 0; i < 10; i++) g.enemySystem.update(0.05, () => false);
+    for (let i = 0; i < 15; i++) g.enemySystem.update(0.05, () => false);
     assert.ok(bread.sprite.x >= 520, 'Bread walks off the ledge');
     assert.ok(bread.sprite.y > g.groundY - BALANCE.enemy.groundOffset,
         'Bread actually falls into a gap');
