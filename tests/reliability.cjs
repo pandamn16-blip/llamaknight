@@ -143,11 +143,11 @@ function fixture(characterId = 'llamaCrunch') {
         setBackgroundColor() {}, shakeEffect: { isRunning: false }, shake() { this.shakeEffect.isRunning = true; } } };
     game.groundY = 768 * 0.78;
     game.run = createRunState(characterId);
-    game.player = { facing: 1, x: 300, y: game.groundY - 40, sprite: shape('player', 300, game.groundY - 40), update() {}, setShielding(held) { game.run.shielding = held; }, showAttack() {}, showHurt() {}, showDeath() {}, showLevelUp() {}, setVisualPhase() {} };
+    game.player = { facing: 1, x: 300, y: game.groundY - 40, sprite: shape('player', 300, game.groundY - 40), update() {}, setShielding(held) { game.run.shielding = held; }, showAttack() {}, showHurt() {}, showDeath() {}, showLevelUp() {}, showCharge() {}, endCharge() {}, setVisualPhase() {} };
     game.run.startX = game.run.furthestX = game.player.x;
     game.playerInput = {
         clearTouch() {}, clearAll() {}, readActions: () => ({ left: false, right: false, jump: false, attack: false }),
-        shieldHeld: () => false, interactPressed: () => false, restartPressed: () => false, menuPressed: () => false, upgradeChoice: () => undefined
+        shieldHeld: () => false, chargeHeld: () => false, interactPressed: () => false, restartPressed: () => false, menuPressed: () => false, upgradeChoice: () => undefined
     };
     game.hud = { update() {} };
     game.worldCamera = new WorldCamera(game.cameras.main, game.scale.height);
@@ -778,7 +778,7 @@ function installCharacterSprites(scene, width, height, missingFrame, selectedPac
     const queued = [];
     g.load = { spritesheet: (...args) => queued.push(args) };
     loadCharacterSheets(g);
-    assert.equal(queued.length, 10); // Four Llama sources, five valid Candy sources and the level-up sheet.
+    assert.equal(queued.length, 11); // Native charge sheet plus the 10 existing actor sheets.
     const queuedByKey = new Map(queued.map(entry => [entry[0], entry]));
     for (const [key, file, end] of [
         ['llama-crunch-idle', 'idle.png', 3], ['llama-crunch-run', 'run.png', 5],
@@ -1092,8 +1092,8 @@ console.log('PASS sprite integration: exact sheet/frame validation, animation ma
         const queued = [];
         g.load = { spritesheet: (...args) => queued.push(args) };
         loadCharacterSheets(g);
-        assert.equal(queued.length, 13); // Seven temporary Llama sources plus six valid Candy sources.
-        assert.equal(new Set(queued.map(args => args[0])).size, 13);
+        assert.equal(queued.length, 14); // Native charge sheet, seven temporary Llama and six Candy sources.
+        assert.equal(new Set(queued.map(args => args[0])).size, 14);
         registerCharacterAnimations(g);
         assert.equal(animations.size, 7);
         for (const state of states) {
