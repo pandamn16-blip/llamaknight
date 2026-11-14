@@ -4,13 +4,13 @@ import { isMobileLayout, onLayoutResize } from '../ui/layout';
 
 export type PlayerActions = { left: boolean; right: boolean; jump: boolean; attack: boolean };
 
-type TouchAction = keyof PlayerActions | 'shield';
+type TouchAction = keyof PlayerActions | 'shield' | 'charge';
 
 export class PlayerInput {
     private cursors: Types.Input.Keyboard.CursorKeys;
-    private keys: Record<'A' | 'D' | 'W' | 'J' | 'R' | 'M' | 'E' | 'K' | 'ONE' | 'TWO' | 'THREE', Input.Keyboard.Key>;
+    private keys: Record<'A' | 'D' | 'W' | 'J' | 'C' | 'R' | 'M' | 'E' | 'K' | 'ONE' | 'TWO' | 'THREE', Input.Keyboard.Key>;
     private touches: Record<TouchAction, Set<number>> = {
-        left: new Set(), right: new Set(), jump: new Set(), attack: new Set(), shield: new Set()
+        left: new Set(), right: new Set(), jump: new Set(), attack: new Set(), shield: new Set(), charge: new Set()
     };
     private joystick?: { base: GameObjects.Arc; thumb: GameObjects.Arc; pointerId?: number };
     private cleanups: (() => void)[] = [];
@@ -18,7 +18,7 @@ export class PlayerInput {
     constructor(private scene: Scene, private isPlaying: () => boolean, private shieldEnabled = false) {
         const { width, height } = scene.scale;
         this.cursors = scene.input.keyboard!.createCursorKeys();
-        this.keys = scene.input.keyboard!.addKeys('A,D,W,J,R,M,E,K,ONE,TWO,THREE') as typeof this.keys;
+        this.keys = scene.input.keyboard!.addKeys('A,D,W,J,C,R,M,E,K,ONE,TWO,THREE') as typeof this.keys;
         scene.input.keyboard!.addCapture(['SPACE', 'UP', 'DOWN', 'LEFT', 'RIGHT']);
 
         const mobile = isMobileLayout();
@@ -28,6 +28,7 @@ export class PlayerInput {
         }
         const jump = this.makeTouchButton(width - (mobile ? 264 : 174), height - (mobile ? 112 : 68), 'JUMP', 'jump', mobile);
         const attack = this.makeTouchButton(width - (mobile ? 102 : 70), height - (mobile ? 112 : 68), 'ATK', 'attack', mobile);
+        const charge = !shieldEnabled ? this.makeTouchButton(width - (mobile ? 184 : 260), height - (mobile ? 280 : 68), 'CHG', 'charge', mobile) : undefined;
         const shield = mobile && shieldEnabled ? this.makeTouchButton(width - 184, height - 282, 'SHIELD', 'shield', true) : undefined;
         if (mobile) {
             this.makeJoystick(height);
@@ -41,6 +42,7 @@ export class PlayerInput {
             const y = height - (mobile ? 112 : 68);
             jump.button.setPosition(width - (mobile ? 264 : 174), y); jump.label.setPosition(jump.button.x, y);
             attack.button.setPosition(width - (mobile ? 102 : 70), y); attack.label.setPosition(attack.button.x, y);
+            if (charge) { charge.button.setPosition(width - (mobile ? 184 : 260), height - (mobile ? 280 : 68)); charge.label.setPosition(charge.button.x, charge.button.y); }
             if (shield) { shield.button.setPosition(width - 184, height - 282); shield.label.setPosition(shield.button.x, shield.button.y); }
             if (this.joystick) {
                 this.joystick.base.y = height - 126;
@@ -74,6 +76,11 @@ export class PlayerInput {
         const jump = this.cursors.up.isDown || this.cursors.space.isDown || this.keys.W.isDown || this.touches.jump.size > 0;
         const attack = this.keys.J.isDown || this.touches.attack.size > 0;
         return { left, right, jump, attack };
+    }
+
+    chargeHeld(): boolean {
+        return this.isPlaying() && !this.shieldEnabled &&
+            (this.keys.C.isDown || this.touches.charge.size > 0);
     }
 
     shieldHeld(): boolean {
