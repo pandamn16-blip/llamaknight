@@ -282,7 +282,13 @@ export class Game extends Phaser.Scene {
             this.archerSystem?.prepare();
             const surfaces = [this.world, this.enemySystem, this.archerSystem];
             const trappedAtStart = this.hazardSystem?.isPlayerTrapped ?? false;
-            this.player.update(trappedAtStart ? { left: false, right: false, jump: false } : actions, dt,
+            // Process J before physics. While Candy is holding a charge she
+            // cannot walk or initiate a jump, but gravity still operates if
+            // she began charging in midair.
+            const chargeHeld = this.run.characterId === 'candy' && actions.attack;
+            this.combatSystem.updateCharge(chargeHeld, dt);
+            const movementLocked = trappedAtStart || this.combatSystem.isCharging;
+            this.player.update(movementLocked ? { ...actions, left: false, right: false, jump: false } : actions, dt,
                 (from, to, y) => this.archerSystem.resolvePlayerMovement(from,
                     this.enemySystem.resolvePlayerMovement(from,
                         this.world.resolvePlayerMovement(from, to, y), y), y),
@@ -314,12 +320,9 @@ export class Game extends Phaser.Scene {
             // J / ATK has a single, shared control: tap to shoot, hold to
             // charge, release to launch the stronger shot. Llama retains
             // its existing held-button sword attack behaviour.
-            const consumedAttack = this.hazardSystem?.handlePlayerAttack(actions.attack) ?? false;
-            if (this.run.characterId === 'candy') {
-                this.combatSystem.updateCharge(actions.attack && !consumedAttack, dt);
-            } else if (actions.attack && !consumedAttack) {
+            const consumedAttack = this.hazardSystem?.handlePlayerAttack(actions.attack && this.run.characterId !== 'candy') ?? false;
+            if (this.run.characterId !== 'candy' && actions.attack && !consumedAttack)
                 this.combatSystem.attack();
-            }
             this.combatSystem.update(dt);
             this.enemySystem.update(dt, (enemy) => this.combatSystem.resolveEnemyAttack(enemy));
             this.archerSystem?.update(dt);
