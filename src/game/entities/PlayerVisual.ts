@@ -110,7 +110,7 @@ export class PlayerVisual {
             // Phaser mirrors the frame in place. Its origin, offsets and foot pivot stay fixed.
             this.animated.setFlipX(direction === -1);
             if (this.sheet?.key === 'candy' && this.action === 'charge')
-                this.animated.setX(this.sheet.offsetX + (direction === -1 ? -6 : 6));
+                this.animated.x = this.sheet.offsetX + (direction === -1 ? -6 : 6);
         } else {
             // Candy and missing-sheet fallbacks are shapes, which have no Flip component.
             // Mirror only those visual children around their original local coordinates.
@@ -178,7 +178,7 @@ export class PlayerVisual {
         // and shifted right (+6px when facing right, mirrored to the left).
         // Only the sprite's visual position changes, never the player hitbox.
         this.animated.setScale(this.sheet.scale * 1.16);
-        this.animated.setX(this.sheet.offsetX + (this.animated.flipX ? -6 : 6));
+        this.animated.x = this.sheet.offsetX + (this.animated.flipX ? -6 : 6);
     }
 
     endCharge(): void {
@@ -247,7 +247,7 @@ export class PlayerVisual {
         // Only change scale after a different animation has been installed.
         this.animated.setScale(this.sheet.scale * (state === 'attack' ? 1.28 : 1));
         // Return to the standard horizontal anchor whenever charge ends.
-        this.animated.setX(this.sheet.offsetX);
+        this.animated.x = this.sheet.offsetX;
     }
 
     private play(state: PlayerAnimation, restart = false): boolean {
