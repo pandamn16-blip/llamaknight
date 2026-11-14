@@ -8,7 +8,7 @@ type TouchAction = keyof PlayerActions | 'shield';
 
 export class PlayerInput {
     private cursors: Types.Input.Keyboard.CursorKeys;
-    private keys: Record<'A' | 'D' | 'W' | 'J' | 'R' | 'M' | 'E' | 'K' | 'ONE' | 'TWO' | 'THREE', Input.Keyboard.Key>;
+    private keys: Record<'A' | 'D' | 'W' | 'J' | 'X' | 'R' | 'M' | 'E' | 'K' | 'ONE' | 'TWO' | 'THREE', Input.Keyboard.Key>;
     private touches: Record<TouchAction, Set<number>> = {
         left: new Set(), right: new Set(), jump: new Set(), attack: new Set(), shield: new Set()
     };
@@ -20,7 +20,7 @@ export class PlayerInput {
     constructor(private scene: Scene, private isPlaying: () => boolean, private shieldEnabled = false) {
         const { width, height } = scene.scale;
         this.cursors = scene.input.keyboard!.createCursorKeys();
-        this.keys = scene.input.keyboard!.addKeys('A,D,W,J,R,M,E,K,ONE,TWO,THREE') as typeof this.keys;
+        this.keys = scene.input.keyboard!.addKeys('A,D,W,J,X,R,M,E,K,ONE,TWO,THREE') as typeof this.keys;
         scene.input.keyboard!.addCapture(['SPACE', 'UP', 'DOWN', 'LEFT', 'RIGHT']);
         const recordTap = () => { if (this.isPlaying()) this.pendingAttackTap = true; };
         scene.input.keyboard!.on?.('keydown-J', recordTap);
@@ -80,6 +80,10 @@ export class PlayerInput {
         const attack = this.keys.J.isDown || this.touches.attack.size > 0 || this.pendingAttackTap;
         this.pendingAttackTap = false;
         return { left, right, jump, attack };
+    }
+
+    escapeHeld(): boolean {
+        return this.isPlaying() && this.keys.X.isDown;
     }
 
     shieldHeld(): boolean {
