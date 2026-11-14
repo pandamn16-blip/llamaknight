@@ -12,6 +12,8 @@ export class PlayerInput {
     private touches: Record<TouchAction, Set<number>> = {
         left: new Set(), right: new Set(), jump: new Set(), attack: new Set(), shield: new Set()
     };
+    // Preserve extremely short J/touch taps that begin and end between frames.
+    private pendingAttackTap = false;
     private joystick?: { base: GameObjects.Arc; thumb: GameObjects.Arc; pointerId?: number };
     private cleanups: (() => void)[] = [];
 
@@ -20,6 +22,9 @@ export class PlayerInput {
         this.cursors = scene.input.keyboard!.createCursorKeys();
         this.keys = scene.input.keyboard!.addKeys('A,D,W,J,R,M,E,K,ONE,TWO,THREE') as typeof this.keys;
         scene.input.keyboard!.addCapture(['SPACE', 'UP', 'DOWN', 'LEFT', 'RIGHT']);
+        const recordTap = () => { if (this.isPlaying()) this.pendingAttackTap = true; };
+        scene.input.keyboard!.on?.('keydown-J', recordTap);
+        this.cleanups.push(() => scene.input.keyboard?.off?.('keydown-J', recordTap));
 
         const mobile = isMobileLayout();
         if (!mobile) {
@@ -72,7 +77,8 @@ export class PlayerInput {
         const left = this.cursors.left.isDown || this.keys.A.isDown || this.touches.left.size > 0;
         const right = this.cursors.right.isDown || this.keys.D.isDown || this.touches.right.size > 0;
         const jump = this.cursors.up.isDown || this.cursors.space.isDown || this.keys.W.isDown || this.touches.jump.size > 0;
-        const attack = this.keys.J.isDown || this.touches.attack.size > 0;
+        const attack = this.keys.J.isDown || this.touches.attack.size > 0 || this.pendingAttackTap;
+        this.pendingAttackTap = false;
         return { left, right, jump, attack };
     }
 
@@ -101,6 +107,7 @@ export class PlayerInput {
 
     clearTouch(): void {
         for (const pointers of Object.values(this.touches)) pointers.clear();
+        this.pendingAttackTap = false;
         if (this.joystick) {
             this.joystick.pointerId = undefined;
             this.joystick.thumb.setPosition(this.joystick.base.x, this.joystick.base.y);
@@ -108,6 +115,7 @@ export class PlayerInput {
     }
 
     clearAll(): void {
+        this.pendingAttackTap = false;
         this.clearTouch();
         this.scene.input.keyboard!.resetKeys();
     }
@@ -135,7 +143,10 @@ export class PlayerInput {
         const text = this.scene.add.text(x, y, label, { fontSize: mobile ? '28px' : label.length > 2 ? '13px' : '25px', color: '#ffffff' })
             .setOrigin(0.5).setDepth(31).setScrollFactor(0);
         const press = (pointer: Input.Pointer) => {
-            if (this.isPlaying()) this.touches[action].add(pointer.id);
+            if (this.isPlaying()) {
+                this.touches[action].add(pointer.id);
+                if (action === 'attack') this.pendingAttackTap = true;
+            }
         };
         const release = (pointer: Input.Pointer) => this.touches[action].delete(pointer.id);
         button.on('pointerdown', press);
