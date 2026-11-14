@@ -285,7 +285,7 @@ export class Game extends Phaser.Scene {
             // Process J before physics. While Candy is holding a charge she
             // cannot walk or initiate a jump, but gravity still operates if
             // she began charging in midair.
-            const chargeHeld = this.run.characterId === 'candy' && actions.attack;
+            const chargeHeld = this.run.characterId === 'candy' && actions.attack && !trappedAtStart;
             this.combatSystem.updateCharge(chargeHeld, dt);
             const movementLocked = trappedAtStart || this.combatSystem.isCharging;
             this.player.update(movementLocked ? { ...actions, left: false, right: false, jump: false } : actions, dt,
@@ -317,6 +317,7 @@ export class Game extends Phaser.Scene {
             this.archerSystem?.prepare();
             this.structures.prepare();
             this.hazardSystem?.update();
+            this.hazardSystem?.updateEscape(this.playerInput.escapeHeld(), dt);
             // J / ATK has a single, shared control: tap to shoot, hold to
             // charge, release to launch the stronger shot. Llama retains
             // its existing held-button sword attack behaviour.
