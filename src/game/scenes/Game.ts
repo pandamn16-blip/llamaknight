@@ -184,7 +184,10 @@ export class Game extends Phaser.Scene {
     private setPhase(phase: RunPhase): void {
         this.run.phase = phase;
         this.debug?.resetSample(this.player, this.cameras.main);
-        if (phase !== 'playing') this.player.setShielding(false);
+        if (phase !== 'playing') {
+            this.player.setShielding(false);
+            this.hazardSystem?.resetEscapeHold();
+        }
         this.player.setVisualPhase(phase);
         this.enemySystem.setPhase(phase);
         this.archerSystem?.setPhase(phase);
