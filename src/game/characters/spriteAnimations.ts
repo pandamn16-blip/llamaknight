@@ -67,11 +67,11 @@ export const CHARACTER_SPRITES: Partial<Record<CharacterVisual, CharacterSpriteS
     }
 };
 
-// Permanent game-ready 6-frame horizontal 256px charge strip.
+// Twelve-frame horizontal charge animation: 12 × 256px source cells.
 export const CANDY_CHARGE = {
-    key: 'candy-charge', path: 'characters/candy/charging.png',
-    width: 1536, height: 256, frameWidth: 256, frameHeight: 256,
-    start: 0, end: 5, fps: 12
+    key: 'candy-charge', path: 'characters/candy/chargeattack.png',
+    width: 3072, height: 256, frameWidth: 256, frameHeight: 256,
+    start: 0, end: 11, fps: 12
 } as const;
 
 export function hasCandyCharge(scene: Scene): boolean {
