@@ -1103,9 +1103,12 @@ console.log('PASS sprite integration: exact sheet/frame validation, animation ma
     assert.equal(chargePng.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
     const chargeWidth = chargePng.readUInt32BE(16), chargeHeight = chargePng.readUInt32BE(20);
     console.log(`Candy chargefix: ${chargeWidth} x ${chargeHeight}`);
-    assert.equal(chargeHeight, 256, 'chargefix must be a single 256px row');
-    assert.ok(chargeWidth >= 256 && chargeWidth % 256 === 0,
-        'chargefix must have exactly 256px-wide frames');
+    // chargefix is still the native 6x2 source (362px cells), not a
+    // converted horizontal 256px strip. Verify real layout to avoid
+    // slicing across sprites while using the corrected replacement art.
+    assert.equal(chargeWidth, 2172);
+    assert.equal(chargeHeight, 724);
+    assert.equal(chargeWidth / 362 * (chargeHeight / 362), 12);
     assert.equal(chargePng[25], 6, 'chargefix must be RGBA');
     console.log('PASS Candy assets: all seven currently configured source strips are 256px horizontal RGBA; hit.png still needs conversion.');
 }
