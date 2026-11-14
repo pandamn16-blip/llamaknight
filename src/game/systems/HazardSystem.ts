@@ -146,6 +146,14 @@ export class HazardSystem {
 
     private clearEscapeHold(): void { this.escapePointer = undefined; }
 
+    // Do not carry a partly held escape through pause, focus loss or upgrades.
+    resetEscapeHold(): void {
+        this.escapePointer = undefined;
+        this.escapeProgress = 0;
+        this.escapeUi?.timer.setText('HOLD / TOUCH');
+        this.escapeUi?.fill.setScale(0, 1);
+    }
+
     private clearEscapePrompt(): void {
         this.escapePointer = undefined;
         this.escapeProgress = 0;
