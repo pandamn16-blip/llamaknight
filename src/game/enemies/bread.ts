@@ -4,8 +4,8 @@ import { hasSpriteFrames } from '../rendering/spriteAssets';
 export const BREAD = {
     initialHealth: 6, healthPerRegion: 1, maxHealthBonus: 4, damage: 1,
     idleMin: 0.8, idleMax: 1.8, patrolDistance: 48, patrolSpeed: 35,
-    detectionRange: 260, detectionHeight: 160, chaseSpeed: 125,
-    loseRange: 400, territoryLeash: 780, returnSpeed: 60,
+    detectionRange: 390, detectionHeight: 160, chaseSpeed: 125,
+    loseRange: 600, territoryLeash: 780, returnSpeed: 60,
     meleeStop: 60, attackRange: 82, attackHeight: 52,
     windup: 0.35, active: 0.1, recovery: 0.9, animationLead: 0.2,
     activationMargin: 160, deathDuration: 1.0,
