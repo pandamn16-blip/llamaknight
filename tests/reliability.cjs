@@ -2413,6 +2413,57 @@ console.log('PASS Stage 2C: deterministic early/later chests, contextual tap/E i
 }
 console.log('PASS Bread AI: chase both directions, telegraph/one-hit active window/recovery, no contact ticks, pause, return, moving section persistence and immediate death deactivation.');
 
+// Bread patrols and chases must obey terrain support, including actual pits.
+{
+    const { game: g } = fixture();
+    const { BREAD } = load('enemies/bread');
+    const { BALANCE } = load('config/balance');
+    g.enemySystem.player = g.player;
+    g.player.x = 9999;
+    const bread = g.enemySystem.spawnBread(500);
+    bread.brain.state = 'patrol'; bread.brain.targetX = 700;
+    g.enemySystem.setTerrain({
+        enemyHeadExposed: () => true,
+        standingY: (x, foot) => x < 520 && Math.abs(foot - g.groundY) < 3 ? g.groundY : undefined,
+        landingY: (x, from, to) => x < 520 && from <= g.groundY + 1 && to >= g.groundY
+            ? g.groundY : undefined
+    });
+    g.enemySystem.update(0.05, () => false);
+    assert.equal(bread.sprite.y, g.groundY - BALANCE.enemy.groundOffset,
+        'Bread remains grounded while supported');
+    for (let i = 0; i < 10; i++) g.enemySystem.update(0.05, () => false);
+    assert.ok(bread.sprite.x >= 520, 'Bread walks off the ledge');
+    assert.ok(bread.sprite.y > g.groundY - BALANCE.enemy.groundOffset,
+        'Bread actually falls into a gap');
+    for (let i = 0; i < 60; i++) g.enemySystem.update(0.05, () => false);
+    assert.equal(bread.sprite.active, false, 'Bread disappears below the map');
+    assert.equal(g.enemySystem.records.get(bread.placementId).defeated, true,
+        'Pit-fallen Bread stays gone even after streaming');
+    assert.equal(g.run.kills, 0, 'Pit falls do not award player kills');
+    g.events.emit('shutdown');
+}
+// Once returning home, a Bread must ignore players even if they enter
+// the expanded detection range, until the original home point is reached.
+{
+    const { game: g } = fixture();
+    g.enemySystem.player = g.player;
+    const bread = g.enemySystem.spawnBread(500);
+    bread.sprite.x = 560;
+    bread.brain.state = 'return';
+    g.player.x = 620;
+    g.enemySystem.update(0.05, () => false);
+    assert.equal(bread.brain.state, 'return');
+    assert.ok(bread.sprite.x < 560);
+    for (let i = 0; i < 23; i++) g.enemySystem.update(0.05, () => false);
+    assert.equal(bread.brain.state, 'idle', 'Bread completes return-home first');
+    g.enemySystem.update(0.05, () => false);
+    assert.equal(bread.brain.state, 'chase', 'Bread can re-aggro after arriving home');
+    g.events.emit('shutdown');
+}
+console.log('PASS Bread terrain/aggro: supported walking, pit gravity, persistent fall and mandatory return home.');
+
+
+
 
 // Resolve shielding at impact, independently of the stance artwork or windup start.
 for (const [character, facing, sourceSide, raisedAtStart, raisedAtImpact, blocked] of [
@@ -3131,6 +3182,27 @@ console.log('PASS stationary shield: no horizontal movement or jumping, immediat
     console.log('PASS Phase 1 hazards: three presses, trapped movement state, player/enemy spikes, cooldowns and pause.');
 }
 
+
+// Candy projectiles ignore elevated platforms but are stopped by stone
+// walls and by the continuous ground, including at the edge of a pit.
+{
+    const { game: g } = fixture('candy');
+    const section = generateSection(1, g.run.seed);
+    const p = section.platforms[0];
+    const y = g.groundY - p.height + 12;
+    assert.ok(g.world.terrainImpact(p.x - p.width / 2 - 20, y,
+        p.x + p.width / 2 + 20, y), 'The platform is physically solid for general collisions');
+    assert.equal(g.world.projectileImpact(p.x - p.width / 2 - 20, y,
+        p.x + p.width / 2 + 20, y), undefined,
+        'Candy spells travel through elevated platform slabs');
+    const wall = generateSection(4, g.run.seed).walls[0];
+    assert.ok(g.world.projectileImpact(wall.x - 100, g.groundY - 40,
+        wall.x + 100, g.groundY - 40), 'Candy shots cannot pass through intact walls');
+    assert.ok(g.world.projectileImpact(250, g.groundY + 12, 350, g.groundY + 12),
+        'Candy shots cannot pass through ordinary solid ground');
+    g.events.emit('shutdown');
+}
+console.log('PASS Candy collision: passes through floating ledges, blocked by walls and ground.');
 
 // Phase 2: mutable world terrain must update real landing/projectile collision,
 // preserve destruction through streaming, and regenerate crumbling ledges.
