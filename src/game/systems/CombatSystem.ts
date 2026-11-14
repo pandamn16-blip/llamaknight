@@ -73,8 +73,8 @@ export class CombatSystem {
         else this.takeDamage(1);
     }
 
-    // Candy has a separate hold-to-charge attack (C / CHG). Normal ATK is
-    // unchanged. Holding for 0.65s produces a 3x-damage magical projectile.
+    // Candy uses the existing J / ATK button: tap and release for a normal
+    // shot, or hold for 0.65s and release for a 3x-damage charged shot.
     updateCharge(held: boolean, dt: number): boolean {
         if (this.run.phase !== 'playing' || this.run.weapon.id !== 'candyShot') return false;
         if (held && this.player.isShielding) held = false;
@@ -89,12 +89,13 @@ export class CombatSystem {
                 this.chargeElapsed = 0;
                 this.player.showCharge();
                 if (hasCandyChargeOrb(this.scene)) {
-                    this.chargeOrb = this.scene.add.sprite(this.player.x + this.player.facing * 48,
+                    const orb = this.scene.add.sprite(this.player.x + this.player.facing * 48,
                         this.player.y - 12, CANDY_PROJECTILE_IDLE.key, 0)
-                        .setDepth(8).setScale(0.32).setFlipX(this.player.facing === -1);
-                    this.chargeOrb.play('candy:orb-start');
-                    this.chargeOrb.once('animationcomplete', () => {
-                        if (this.chargeOrb?.active) this.chargeOrb.play('candy:orb-spin');
+                        .setDepth(8).setScale(0.36).setFlipX(this.player.facing === -1);
+                    this.chargeOrb = orb;
+                    orb.play('candy:orb-start');
+                    orb.once('animationcomplete', () => {
+                        if (this.chargeOrb === orb && orb.active) orb.play('candy:orb-spin');
                     });
                 }
             }
@@ -126,13 +127,16 @@ export class CombatSystem {
         const externalEffect = definition.kind === 'melee' && hasSwordSlashEffect(this.scene);
         const artworkIncludesSlash = this.player.showAttack();
         if (definition.kind === 'projectile') {
-            const sprite = this.scene.add.container(this.player.x + 30 * direction, this.player.y).setDepth(7).setScrollFactor(1);
+            // A charged spell begins exactly where the spinning orb was held,
+            // so releasing J produces a continuous visual handoff.
+            const sprite = this.scene.add.container(this.player.x + (charged ? 48 : 30) * direction,
+                this.player.y - (charged ? 12 : 0)).setDepth(7).setScrollFactor(1);
             if (hasCandyProjectileEffect(this.scene)) {
                 // The visual animates independently; the existing projectile container
                 // retains its collision position, speed, hitbox, and lifetime.
                 const effect = CANDY_PROJECTILE_EFFECT;
                 const image = this.scene.add.sprite(0, 0, effect.key, charged ? 2 : 0)
-                    .setOrigin(0.5).setScale(charged ? 0.4 : 0.3).setFlipX(direction === -1);
+                    .setOrigin(0.5).setScale(charged ? 0.36 : 0.3).setFlipX(direction === -1);
                 sprite.add(image);
                 // Frames 1-2 start the spell; frame 3 holds mid-flight, and
                 // frame 4 holds after sustained travel. Frames 5-6 are impact only.
@@ -206,7 +210,7 @@ export class CombatSystem {
         // handled once by the existing swept-hit logic.
         const impact = this.scene.add.sprite(shot.sprite.x, shot.sprite.y, effect.key, 4)
             .setDepth(7).setScrollFactor(1).setOrigin(0.5)
-            .setScale(0.3).setFlipX(shot.direction === -1);
+            .setScale(shot.charged ? 0.36 : 0.3).setFlipX(shot.direction === -1);
         this.slashes.add(impact);
         impact.once('animationcomplete', () => {
             this.slashes.delete(impact);
@@ -231,13 +235,12 @@ export class CombatSystem {
     }
 
     setVisualPhase(phase: RunPhase): void {
-        if (phase === 'gameOver') {
+        // Pause/upgrade/focus loss releases all input; cancel rather than
+        // accidentally launching a charged shot when normal play resumes.
+        if (phase !== 'playing') {
             this.chargeOrb?.destroy(); this.chargeOrb = undefined;
             this.chargeHeldLast = false; this.chargeElapsed = 0;
             this.player.endCharge();
-        } else if (this.chargeOrb) {
-            if (phase === 'playing') this.chargeOrb.anims.resume();
-            else this.chargeOrb.anims.pause();
         }
         for (const slash of this.slashes) {
             if (phase === 'gameOver') {
