@@ -67,23 +67,20 @@ export const CHARACTER_SPRITES: Partial<Record<CharacterVisual, CharacterSpriteS
     }
 };
 
-// chargefix.png uses the permanent horizontal 256x256 frame format.
-// Discover the exact number of frames from its PNG width rather than assuming
-// the earlier malformed 362px / two-row charge source is still in use.
+// The replacement chargefix.png is still a 6x2 grid of 362x362
+// source frames (2172x724), despite its name. Load it correctly and
+// leave the canonical 256x256 standard for a later asset re-export.
 export const CANDY_CHARGE = {
     key: 'candy-charge', path: 'characters/candy/chargefix.png',
-    frameWidth: 256, frameHeight: 256, fps: 12
+    width: 2172, height: 724, frameWidth: 362, frameHeight: 362,
+    start: 0, end: 11, fps: 12
 } as const;
 
-function candyChargeFrames(scene: Scene): number {
-    if (!scene.textures?.exists(CANDY_CHARGE.key)) return 0;
-    const image = scene.textures.get(CANDY_CHARGE.key).getSourceImage();
-    if (image.height !== 256 || image.width < 256 || image.width % 256 !== 0) return 0;
-    return image.width / 256;
-}
-
 export function hasCandyCharge(scene: Scene): boolean {
-    return candyChargeFrames(scene) > 0 && scene.anims.exists('candy:charge');
+    if (!scene.textures?.exists(CANDY_CHARGE.key)) return false;
+    const image = scene.textures.get(CANDY_CHARGE.key).getSourceImage();
+    return image.width === CANDY_CHARGE.width && image.height === CANDY_CHARGE.height &&
+        scene.anims.exists('candy:charge');
 }
 
 // Optional celebration animation; not required for the character to load.
@@ -133,7 +130,8 @@ export function loadCharacterSheets(scene: Scene): void {
     if (candyJump) candyJump.end = 5;
     sources.set(CANDY_LEVELUP.key, { source: CANDY_LEVELUP, end: CANDY_LEVELUP.end });
     scene.load.spritesheet(CANDY_CHARGE.key, CANDY_CHARGE.path, {
-        frameWidth: 256, frameHeight: 256
+        frameWidth: CANDY_CHARGE.frameWidth, frameHeight: CANDY_CHARGE.frameHeight,
+        startFrame: 0, endFrame: CANDY_CHARGE.end
     });
     for (const { source, end } of sources.values()) {
         scene.load.spritesheet(source.key, source.path, {
@@ -143,11 +141,13 @@ export function loadCharacterSheets(scene: Scene): void {
 }
 
 export function registerCharacterAnimations(scene: Scene): void {
-    const chargeFrames = candyChargeFrames(scene);
-    if (chargeFrames && !scene.anims.exists('candy:charge')) {
+    if (scene.textures.exists(CANDY_CHARGE.key) &&
+        scene.textures.get(CANDY_CHARGE.key).getSourceImage().width === CANDY_CHARGE.width &&
+        scene.textures.get(CANDY_CHARGE.key).getSourceImage().height === CANDY_CHARGE.height &&
+        !scene.anims.exists('candy:charge')) {
         scene.anims.create({ key: 'candy:charge',
             frames: scene.anims.generateFrameNumbers(CANDY_CHARGE.key,
-                { start: 0, end: chargeFrames - 1 }),
+                { start: 0, end: CANDY_CHARGE.end }),
             frameRate: CANDY_CHARGE.fps, repeat: 0
         });
     }
