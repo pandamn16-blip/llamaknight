@@ -1159,6 +1159,59 @@ console.log('PASS sprite integration: exact sheet/frame validation, animation ma
     console.log('PASS Candy assets: all seven currently configured source strips are 256px horizontal RGBA; hit.png still needs conversion.');
 }
 
+// Pixel-measured sprite bounds for verifying Candy charge-to-idle alignment.
+{
+    const { inflateSync } = require('node:zlib');
+    const bounds = name => {
+        const png = fs.readFileSync(path.join(__dirname, '../public/assets/characters/candy', name + '.png'));
+        const width = png.readUInt32BE(16), height = png.readUInt32BE(20);
+        const chunks = [];
+        for (let pos = 8; pos < png.length;) {
+            const len = png.readUInt32BE(pos), type = png.toString('ascii', pos + 4, pos + 8);
+            if (type === 'IDAT') chunks.push(png.subarray(pos + 8, pos + 8 + len));
+            pos += len + 12;
+        }
+        const raw = inflateSync(Buffer.concat(chunks)), stride = width * 4;
+        let last = Buffer.alloc(stride), pos = 0;
+        const results = Array.from({ length: width / 256 }, () => ({
+            left: 256, right: -1, top: 256, bottom: -1,
+            footLeft: 256, footRight: -1, footBottom: -1
+        }));
+        for (let y = 0; y < height; y++) {
+            const mode = raw[pos++], row = Buffer.from(raw.subarray(pos, pos + stride)); pos += stride;
+            for (let k = 0; k < stride; k++) {
+                const left = k >= 4 ? row[k-4] : 0, up = last[k], ul = k >= 4 ? last[k-4] : 0;
+                let pred = mode === 1 ? left : mode === 2 ? up :
+                    mode === 3 ? Math.floor((left + up) / 2) :
+                    mode === 4 ? (Math.abs(up-ul) <= Math.abs(left-ul) && Math.abs(up-ul) <= Math.abs(left-up)
+                        ? left : Math.abs(left-ul) <= Math.abs(left-up) ? up : ul) : 0;
+                if (mode === 4) {
+                    const a=Math.abs(ul-up),b=Math.abs(ul-left),c=Math.abs(up-left);
+                    pred=a<=b&&a<=c?left:b<=c?up:ul;
+                }
+                row[k] = (row[k]+pred)&255;
+            }
+            for (let x = 0; x < width; x++) {
+                const k = x*4, alpha = row[k+3];
+                if (alpha < 180) continue;
+                const q = results[Math.floor(x/256)], fx=x%256;
+                q.left = Math.min(q.left,fx);q.right=Math.max(q.right,fx);
+                q.top=Math.min(q.top,y);q.bottom=Math.max(q.bottom,y);
+                const red=row[k], green=row[k+1], blue=row[k+2];
+                // Dark warm boot/brown pixels near the bottom, excluding pink spell effects.
+                if (y>120&&fx>35&&fx<195&&red>40&&red<190&&red>green*1.12&&green>blue*.65) {
+                    q.footLeft=Math.min(q.footLeft,fx);q.footRight=Math.max(q.footRight,fx);
+                    q.footBottom=Math.max(q.footBottom,y);
+                }
+            }
+            last=row;
+        }
+        return results.map(q=>[q.left,q.right,q.top,q.bottom,q.footLeft,q.footRight,q.footBottom]);
+    };
+    console.log('CANDY PIXEL BOUNDS idle [left,right,top,bottom,footLeft,footRight,footBottom]',JSON.stringify(bounds('idle')));
+    console.log('CANDY PIXEL BOUNDS chargeattack',JSON.stringify(bounds('chargeattack')));
+}
+
 // Preferred separate-state packs switch textures without changing the parent/gameplay state.
 {
     const { game: g } = fixture();
