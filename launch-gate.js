@@ -3,7 +3,38 @@
   const RELEASE_AT = Date.parse('2026-11-22T19:29:00Z');
   const HASH = '1fdf7964e337ea72432b47060405b22d845fe37c2ced00cd8f105086f5e7c9ba';
   const KEY = 'llamaknight-preview-unlocked-v1';
-  if (Date.now() >= RELEASE_AT || sessionStorage.getItem(KEY) === 'yes') return;
+  // Never trust the visitor's device clock for unlocking.
+  // GitHub Pages sends a server-side Date response header.
+  const TIME_URL = new URL('launch-gate.js', document.currentScript?.src || location.href);
+  let verifiedReleased = false;
+  let checking = false;
+  let timer;
+  if (sessionStorage.getItem(KEY) === 'yes') return;
+
+  async function checkServerTime() {
+    if (checking || verifiedReleased) return;
+    checking = true;
+    try {
+      const url = new URL(TIME_URL.href);
+      url.searchParams.set('time-check', Math.random().toString(36).slice(2));
+      const response = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+      if (!response.ok) throw new Error('Time endpoint unavailable');
+      const header = response.headers.get('Date');
+      if (!header) throw new Error('Server Date header unavailable');
+      const serverTime = Date.parse(header);
+      if (!Number.isFinite(serverTime)) throw new Error('Invalid server Date header');
+      if (serverTime >= RELEASE_AT) {
+        verifiedReleased = true;
+        removeGate();
+      }
+    } catch (error) {
+      // Fail closed when server time cannot be confirmed. Password still works.
+      console.warn('LlamaKnight: server-time verification unavailable; preview stays locked.', error);
+    } finally {
+      checking = false;
+    }
+  }
+
 
   const css = document.createElement('style');
   css.id = 'lk-preview-styles';
@@ -53,9 +84,7 @@
       gate.querySelector('input').focus();
     }
   };
-  let timer;
   const start = () => {
-    if (Date.now() >= RELEASE_AT) return;
     document.head.append(css);
     document.body.append(gate);
     document.body.style.overflow = 'hidden';
@@ -64,7 +93,8 @@
     const error = gate.querySelector('#lk-preview-error');
     gate.querySelector('form').addEventListener('submit', async (event) => {
       event.preventDefault();
-      if (Date.now() >= RELEASE_AT) { removeGate(); return; }
+      await checkServerTime();
+      if (verifiedReleased) return;
       const bytes = new TextEncoder().encode(input.value);
       const digest = await crypto.subtle.digest('SHA-256', bytes);
       const hex = [...new Uint8Array(digest)].map(x => x.toString(16).padStart(2, '0')).join('');
@@ -77,11 +107,11 @@
       }
     });
     input.focus();
-    timer = setInterval(() => {
-      if (Date.now() >= RELEASE_AT) removeGate();
-    }, 1000);
+    // Recheck the authoritative server clock, including tabs left open.
+    void checkServerTime();
+    timer = setInterval(() => { void checkServerTime(); }, 5000);
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && Date.now() >= RELEASE_AT) removeGate();
+      if (!document.hidden) void checkServerTime();
     });
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, {once:true});
