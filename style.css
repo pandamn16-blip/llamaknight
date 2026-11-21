@@ -1,0 +1,174 @@
+html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+    color: rgba(255, 255, 255, 0.87);
+    background-color: #0f0f0f;
+}
+
+#app {
+    position: fixed;
+    inset: 0;
+    /* A fixed inset box follows the actual viewport edges in standalone
+       mobile web apps. Explicit 100vh/100dvh heights can disagree with the
+       fixed containing block on iOS and expose a strip below the canvas. */
+    box-sizing: border-box;
+    /* Do not pad the game canvas: landscape Safari's notch and home-indicator
+       insets otherwise produce large light-blue strips beside/below the game.
+       The canvas renders edge-to-edge; UI controls honor these insets within
+       the Phaser coordinate system instead. */
+    padding: 0;
+    --game-safe-left: env(safe-area-inset-left, 0px);
+    --game-safe-right: env(safe-area-inset-right, 0px);
+    --game-safe-top: env(safe-area-inset-top, 0px);
+    --game-safe-bottom: env(safe-area-inset-bottom, 0px);
+    overflow: hidden;
+}
+
+#game-container {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+#game-container canvas {
+    display: block;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+#rotate-message {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    box-sizing: border-box;
+    padding: 24px;
+    background: #151527;
+    color: #ffffff;
+    font: bold 22px/1.6 Arial, sans-serif;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+}
+
+#rotate-message span {
+    font-size: 16px;
+    font-weight: normal;
+}
+
+@media (orientation: portrait) {
+    #rotate-message { display: flex; }
+}
+
+/* Match the sky behind Safari's browser chrome, not in-canvas gutters. */
+@media (pointer: coarse) and (hover: none) {
+    html, body, #app { background-color: #b9d9e8; }
+}
+
+/* Fullscreen uses the same edge-to-edge positioning as standalone mode. */
+#app:fullscreen { inset: 0; }
+
+/* Use the same mobile decision as Phaser, even if Safari's pointer queries differ.
+   Safe area is applied to the UI, not used to shrink the game canvas. */
+html[data-game-mobile="true"],
+html[data-game-mobile="true"] body,
+html[data-game-mobile="true"] #app { background-color: #b9d9e8; }
+
+/* Five-minute Bread leaderboard: browser-native input for mobile keyboards. */
+.bread-leaderboard-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    background: rgba(13, 10, 28, .91);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+    padding: max(12px, env(safe-area-inset-top, 0px))
+             max(16px, env(safe-area-inset-right, 0px))
+             max(12px, env(safe-area-inset-bottom, 0px))
+             max(16px, env(safe-area-inset-left, 0px));
+    overflow: auto;
+    touch-action: pan-y;
+}
+.bread-leaderboard-dialog {
+    box-sizing: border-box;
+    width: min(560px, 100%);
+    max-height: 100%;
+    overflow: auto;
+    border: 3px solid #f8d28a;
+    border-radius: 17px;
+    background: #302441;
+    box-shadow: 0 18px 60px #090510;
+    color: #fff0d5;
+    padding: 18px 24px 22px;
+    font: 16px/1.4 Arial, sans-serif;
+    text-align: center;
+}
+.bread-leaderboard-dialog h2 {
+    margin: 0 0 6px;
+    color: #ffe1a2;
+    font: bold clamp(20px, 4vw, 30px)/1.2 Georgia, serif;
+}
+.bread-leaderboard-score { margin: 0 0 10px; color: #f8d28a; font-weight: 800; font-size: 19px; }
+.bread-leaderboard-note { margin: 0 0 9px; color: #e5cbbf; font-size: 14px; }
+.bread-leaderboard-status { min-height: 20px; margin: 4px 0 8px; color: #ffe1a2; font-size: 14px; }
+.bread-leaderboard-list {
+    box-sizing: border-box;
+    max-height: min(38vh, 235px);
+    overflow-y: auto;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 12px;
+    text-align: left;
+}
+.bread-leaderboard-list li {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) 64px;
+    gap: 8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid #5d456c;
+}
+.bread-leaderboard-list li strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bread-leaderboard-list li span:last-child { text-align: right; font-weight: bold; }
+.bread-leaderboard-form { display: flex; gap: 10px; margin: 10px 0; }
+.bread-leaderboard-form input {
+    box-sizing: border-box;
+    min-width: 0;
+    flex: 1;
+    border: 2px solid #c99e67;
+    border-radius: 7px;
+    padding: 12px;
+    font: 16px Arial, sans-serif;
+    color: #181323;
+    background: #fff8ef;
+}
+.bread-leaderboard-dialog button {
+    border: 2px solid #f8d28a;
+    border-radius: 7px;
+    background: #79507c;
+    color: white;
+    padding: 12px 18px;
+    cursor: pointer;
+    font: bold 15px Georgia, serif;
+}
+.bread-leaderboard-dialog button:disabled { opacity: .5; cursor: default; }
+.bread-leaderboard-dialog button:focus-visible,
+.bread-leaderboard-form input:focus-visible { outline: 3px solid #fff0c2; outline-offset: 2px; }
+.bread-leaderboard-close { min-width: 140px; }
+@media (max-height: 520px) {
+    .bread-leaderboard-dialog { padding: 12px 18px; }
+    .bread-leaderboard-list { max-height: 22vh; }
+}
+@media (max-width: 530px) {
+    .bread-leaderboard-form { flex-direction: column; }
+}
